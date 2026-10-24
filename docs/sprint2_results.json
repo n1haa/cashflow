@@ -1,0 +1,329 @@
+{
+  "rules_version": "rules-v1",
+  "category_labels": {
+    "sales": "Продажи",
+    "customer_receipts": "Поступления от клиентов",
+    "other_income": "Прочие поступления",
+    "supplies": "Закупки и поставщики",
+    "payroll": "Фонд оплаты труда",
+    "contractors": "Услуги по ГПХ",
+    "rent": "Аренда",
+    "equipment_rent": "Аренда оборудования",
+    "taxes": "Налоги и сборы",
+    "bank_fees": "Банковские комиссии",
+    "marketing": "Маркетинг",
+    "utilities": "Коммунальные услуги",
+    "telecom": "Связь и интернет",
+    "software": "ПО и облачные услуги",
+    "business_services": "Хозяйственные и бухгалтерские услуги",
+    "own_transfers": "Переводы между своими счетами",
+    "owner_withdrawals": "Вывод средств предпринимателя",
+    "refund_in": "Возвраты поступившие",
+    "refund_out": "Возвраты выплаченные",
+    "unknown": "Не определено"
+  },
+  "note": "Доля автоматического назначения категорий не является оценкой точности",
+  "datasets": [
+    {
+      "file": "C071.csv",
+      "sha256": "5cc886333684098ee4717729819e20b1128f22f8e8b48661fa4eec78e015c0ef",
+      "import_status": "partial_success",
+      "missing_inn": 5,
+      "total_transactions": 614,
+      "categorized_transactions": 614,
+      "undefined_transactions": 0,
+      "needs_review_transactions": 0,
+      "automatic_percentage": 100.0,
+      "distribution": {
+        "bank_fees": 24,
+        "business_services": 48,
+        "customer_receipts": 253,
+        "marketing": 57,
+        "own_transfers": 33,
+        "payroll": 48,
+        "rent": 24,
+        "software": 46,
+        "taxes": 33,
+        "telecom": 24,
+        "utilities": 24
+      },
+      "review_references": {
+        "bank_fees": [
+          {
+            "operation_id": "C071-000001",
+            "source_row": 2
+          },
+          {
+            "operation_id": "C071-000589",
+            "source_row": 590
+          }
+        ],
+        "business_services": [
+          {
+            "operation_id": "C071-000010",
+            "source_row": 11
+          },
+          {
+            "operation_id": "C071-000603",
+            "source_row": 604
+          }
+        ],
+        "customer_receipts": [
+          {
+            "operation_id": "C071-000003",
+            "source_row": 4
+          },
+          {
+            "operation_id": "C071-000614",
+            "source_row": 615
+          }
+        ],
+        "marketing": [
+          {
+            "operation_id": "C071-000011",
+            "source_row": 12
+          },
+          {
+            "operation_id": "C071-000606",
+            "source_row": 607
+          }
+        ],
+        "own_transfers": [
+          {
+            "operation_id": "C071-000017",
+            "source_row": 18
+          },
+          {
+            "operation_id": "C071-000613",
+            "source_row": 614
+          }
+        ],
+        "payroll": [
+          {
+            "operation_id": "C071-000013",
+            "source_row": 14
+          },
+          {
+            "operation_id": "C071-000609",
+            "source_row": 610
+          }
+        ],
+        "rent": [
+          {
+            "operation_id": "C071-000004",
+            "source_row": 5
+          },
+          {
+            "operation_id": "C071-000592",
+            "source_row": 593
+          }
+        ],
+        "software": [
+          {
+            "operation_id": "C071-000008",
+            "source_row": 9
+          },
+          {
+            "operation_id": "C071-000604",
+            "source_row": 605
+          }
+        ],
+        "taxes": [
+          {
+            "operation_id": "C071-000022",
+            "source_row": 23
+          },
+          {
+            "operation_id": "C071-000611",
+            "source_row": 612
+          }
+        ],
+        "telecom": [
+          {
+            "operation_id": "C071-000009",
+            "source_row": 10
+          },
+          {
+            "operation_id": "C071-000596",
+            "source_row": 597
+          }
+        ],
+        "utilities": [
+          {
+            "operation_id": "C071-000002",
+            "source_row": 3
+          },
+          {
+            "operation_id": "C071-000612",
+            "source_row": 613
+          }
+        ]
+      }
+    },
+    {
+      "file": "C015.csv",
+      "sha256": "d3334ca3beeb7ca6ac5986b80c6ccfafd63d1cbd8b1d49a390ed093a0347125e",
+      "import_status": "partial_success",
+      "missing_inn": 96,
+      "total_transactions": 2455,
+      "categorized_transactions": 2455,
+      "undefined_transactions": 0,
+      "needs_review_transactions": 0,
+      "automatic_percentage": 100.0,
+      "distribution": {
+        "business_services": 24,
+        "contractors": 416,
+        "equipment_rent": 24,
+        "marketing": 49,
+        "other_income": 1,
+        "owner_withdrawals": 42,
+        "payroll": 96,
+        "rent": 24,
+        "sales": 1561,
+        "software": 21,
+        "supplies": 73,
+        "taxes": 28,
+        "telecom": 24,
+        "utilities": 72
+      },
+      "review_references": {
+        "business_services": [
+          {
+            "operation_id": "C015-000032",
+            "source_row": 33
+          },
+          {
+            "operation_id": "C015-002361",
+            "source_row": 2362
+          }
+        ],
+        "contractors": [
+          {
+            "operation_id": "C015-000020",
+            "source_row": 21
+          },
+          {
+            "operation_id": "C015-002448",
+            "source_row": 2449
+          }
+        ],
+        "equipment_rent": [
+          {
+            "operation_id": "C015-000008",
+            "source_row": 9
+          },
+          {
+            "operation_id": "C015-002362",
+            "source_row": 2363
+          }
+        ],
+        "marketing": [
+          {
+            "operation_id": "C015-000033",
+            "source_row": 34
+          },
+          {
+            "operation_id": "C015-002431",
+            "source_row": 2432
+          }
+        ],
+        "other_income": [
+          {
+            "operation_id": "C015-000978",
+            "source_row": 979
+          }
+        ],
+        "owner_withdrawals": [
+          {
+            "operation_id": "C015-000047",
+            "source_row": 48
+          },
+          {
+            "operation_id": "C015-002455",
+            "source_row": 2456
+          }
+        ],
+        "payroll": [
+          {
+            "operation_id": "C015-000011",
+            "source_row": 12
+          },
+          {
+            "operation_id": "C015-002437",
+            "source_row": 2438
+          }
+        ],
+        "rent": [
+          {
+            "operation_id": "C015-000013",
+            "source_row": 14
+          },
+          {
+            "operation_id": "C015-002365",
+            "source_row": 2366
+          }
+        ],
+        "sales": [
+          {
+            "operation_id": "C015-000001",
+            "source_row": 2
+          },
+          {
+            "operation_id": "C015-002454",
+            "source_row": 2455
+          }
+        ],
+        "software": [
+          {
+            "operation_id": "C015-000054",
+            "source_row": 55
+          },
+          {
+            "operation_id": "C015-002398",
+            "source_row": 2399
+          }
+        ],
+        "supplies": [
+          {
+            "operation_id": "C015-000018",
+            "source_row": 19
+          },
+          {
+            "operation_id": "C015-002446",
+            "source_row": 2447
+          }
+        ],
+        "taxes": [
+          {
+            "operation_id": "C015-000090",
+            "source_row": 91
+          },
+          {
+            "operation_id": "C015-002449",
+            "source_row": 2450
+          }
+        ],
+        "telecom": [
+          {
+            "operation_id": "C015-000036",
+            "source_row": 37
+          },
+          {
+            "operation_id": "C015-002385",
+            "source_row": 2386
+          }
+        ],
+        "utilities": [
+          {
+            "operation_id": "C015-000055",
+            "source_row": 56
+          },
+          {
+            "operation_id": "C015-002424",
+            "source_row": 2425
+          }
+        ]
+      }
+    }
+  ]
+}
