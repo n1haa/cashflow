@@ -10,27 +10,30 @@
 </head>
 <body>
   <a class="skip" href="#main">Перейти к содержимому</a>
+  <div class="app">
   <aside class="sidebar">
     <a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">↗</span><span>CashFlow <b>AI</b></span></a>
     <p class="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</p>
     <nav aria-label="Основная навигация">
       <a href="#overview" aria-current="page">Обзор</a>
       <a href="#upload">Загрузить выписку</a>
+      <a href="#settings">Параметры прогноза</a>
       <a href="#transactions">Транзакции</a>
       <a href="#recurring">Регулярные операции</a>
       <a href="#forecast">Прогноз на 30 дней</a>
       <a href="#gaps">Кассовые разрывы</a>
       <a href="#events">Будущие события</a>
-      <a href="#assistant">Ассистент</a>
     </nav>
     <div class="sidebar-note"><span class="connection-dot"></span>Локальное рабочее пространство<p>Последняя выписка хранится до перезапуска сервера.</p></div>
   </aside>
   <main id="main">
     <header class="topbar"><span>Финансы бизнеса <span class="muted">/ Анализ выписки</span></span><a href="#forecast">Прогноз на 30 дней ↗</a></header>
-    <section id="overview" class="section">
+    <div class="tab-content" id="tab-content">
+    <section id="overview" class="section is-active">
       <div class="section-heading"><div><p class="eyebrow">CASHFLOW AI</p><h1>Ваш денежный поток</h1><p class="muted">От банковской выписки к понятной картине ближайших 30 дней.</p></div><a class="button primary" href="#upload">Загрузить выписку <span aria-hidden="true">↑</span></a></div>
       <div id="global-message" role="status" aria-live="polite"></div>
       <div id="overview-content" aria-live="polite"><div class="notice">Загружаем состояние рабочего пространства…</div></div>
+      <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров. Данные хранятся в памяти сервера до перезапуска; для нескольких пользователей нужна авторизация и постоянная БД.</footer>
     </section>
     <section id="upload" class="section panel">
       <div class="section-heading"><div><p class="eyebrow">01 / ДАННЫЕ</p><h2>Банковская выписка</h2><p class="muted">CSV или XLSX, до 10 МиБ. Новая выписка заменит предыдущую.</p></div></div>
@@ -41,7 +44,7 @@
       <div id="upload-message" role="status" aria-live="polite"></div>
       <div id="import-result"></div>
     </section>
-    <section class="section panel" aria-labelledby="settings-heading">
+    <section id="settings" class="section panel" aria-labelledby="settings-heading">
       <div class="section-heading"><div><h2 id="settings-heading">Параметры прогноза</h2><p class="muted">Без даты расчет строится от последнего дня выписки. Для более поздней даты нужен известный остаток на ее конец.</p></div></div>
       <form id="forecast-form" class="settings-form">
         <label>Дата расчета<input id="as-of" name="as_of" type="date"></label>
@@ -81,12 +84,16 @@
       </form>
       <p id="event-message" class="muted" role="status" aria-live="polite"></p><div id="events-content"></div>
     </section>
-    <section id="assistant" class="section panel">
-      <div class="section-heading"><div><p class="eyebrow">07 / АССИСТЕНТ</p><h2>Вопросы по финансам</h2><p class="muted">Ответы строятся по вашей выписке, прогнозу и будущим событиям с указанием источников.</p></div></div>
-      <form id="chat-form" class="chat-form"><label for="chat-message">Ваш вопрос</label><textarea id="chat-message" maxlength="2000" rows="3" placeholder="Почему ожидается кассовый разрыв? Какие платежи предстоят?" required></textarea><button id="chat-submit" class="button primary" type="submit">Спросить</button></form>
-      <p id="chat-status" class="muted" role="status" aria-live="polite"></p><div id="chat-answer" aria-live="polite"></div>
-    </section>
-    <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров. Данные хранятся в памяти сервера до перезапуска; для нескольких пользователей нужна авторизация и постоянная БД.</footer>
+    </div>
   </main>
+  </div>
+  <button class="ai-fab" id="ai-open" type="button" aria-label="Открыть AI-ассистента" aria-controls="ai-panel" aria-expanded="false"><span aria-hidden="true">✧</span></button>
+  <div class="ai-backdrop" id="ai-backdrop" hidden></div>
+  <aside class="ai-panel" id="ai-panel" role="dialog" aria-label="AI-ассистент" aria-hidden="true" aria-modal="true">
+    <header class="ai-header"><div><p class="eyebrow">CASHFLOW AI</p><h2>Вопросы по финансам</h2></div><button class="ai-close" id="ai-close" type="button" aria-label="Закрыть ассистента">×</button></header>
+    <p class="ai-intro muted">Ответы строятся по вашей выписке, прогнозу и будущим событиям с указанием источников.</p>
+    <div class="ai-messages" id="ai-messages" aria-live="polite"><p id="chat-status" class="muted" role="status" aria-live="polite"></p><div id="chat-answer"></div></div>
+    <form id="chat-form" class="chat-form ai-chat-form"><label for="chat-message">Ваш вопрос</label><textarea id="chat-message" maxlength="2000" rows="3" placeholder="Почему ожидается кассовый разрыв? Какие платежи предстоят?" required></textarea><button id="chat-submit" class="button primary" type="submit">Спросить</button></form>
+  </aside>
 </body>
 </html>

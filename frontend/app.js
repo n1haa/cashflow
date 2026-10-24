@@ -234,11 +234,38 @@ document.addEventListener('click', async event => {
     try { await loadModule(name, state.generation); } finally { setBusy(false); }
   }
 });
+const tabScroll = new Map();
+let activeSection = null;
 function activeNav() {
   const hash = location.hash || '#overview';
-  document.querySelectorAll('nav a').forEach(link => { if (link.getAttribute('href') === hash) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); });
+  const target = document.querySelector(hash);
+  const section = target?.matches('.section') ? target : document.querySelector('#overview');
+  const scroller = $('tab-content');
+  if (activeSection && activeSection !== section) tabScroll.set(activeSection.id, scroller.scrollTop);
+  document.querySelectorAll('.tab-content>.section').forEach(item => item.classList.toggle('is-active', item === section));
+  activeSection = section;
+  scroller.scrollTop = tabScroll.get(section.id) || 0;
+  document.querySelectorAll('nav a').forEach(link => { if (link.getAttribute('href') === `#${section.id}`) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); });
 }
 window.addEventListener('hashchange', activeNav); activeNav(); render(); loadExisting();
+
+const aiPanel = $('ai-panel'), aiBackdrop = $('ai-backdrop'), aiOpen = $('ai-open');
+function closeAssistant() {
+  document.body.classList.remove('ai-panel--open'); aiPanel.classList.remove('ai-panel--open');
+  aiPanel.setAttribute('aria-hidden', 'true'); aiOpen.setAttribute('aria-expanded', 'false');
+  window.setTimeout(() => { if (!aiPanel.classList.contains('ai-panel--open')) aiBackdrop.hidden = true; }, 260);
+  aiOpen.focus();
+}
+function openAssistant() {
+  aiBackdrop.hidden = false;
+  requestAnimationFrame(() => { document.body.classList.add('ai-panel--open'); aiPanel.classList.add('ai-panel--open'); });
+  aiPanel.setAttribute('aria-hidden', 'false'); aiOpen.setAttribute('aria-expanded', 'true');
+  $('chat-message').focus();
+}
+aiOpen.addEventListener('click', openAssistant);
+$('ai-close').addEventListener('click', closeAssistant);
+aiBackdrop.addEventListener('click', closeAssistant);
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && aiPanel.classList.contains('ai-panel--open')) closeAssistant(); });
 
 $('event-form').addEventListener('submit', async event => {
   event.preventDefault();
@@ -253,10 +280,13 @@ $('event-form').addEventListener('submit', async event => {
 });
 
 $('chat-form').addEventListener('submit', async event => {
-  event.preventDefault(); $('chat-submit').disabled = true; $('chat-status').textContent = 'Ищем подтверждение в данных…'; $('chat-answer').innerHTML = '';
+  event.preventDefault(); const question = $('chat-message').value.trim(); $('chat-submit').disabled = true; $('chat-status').textContent = 'Ищем подтверждение в данных…';
+  $('chat-answer').insertAdjacentHTML('beforeend', `<div class="ai-message ai-message-user">${esc(question)}</div>`);
   try {
-    const result = await api.chat($('chat-message').value.trim());
-    $('chat-answer').innerHTML = `<div class="notice">${esc(result.answer).replaceAll('\n', '<br>')}<p class="muted">${result.mode === 'llm' ? 'Ответ сформирован языковой моделью по контексту системы.' : 'Ответ сформирован по данным системы.'}</p>${result.sources.length ? `<details><summary>Источники · ${result.sources.length}</summary><ul>${result.sources.map(source => `<li>${esc(source)}</li>`).join('')}</ul></details>` : ''}</div>`;
+    const result = await api.chat(question);
+    $('chat-answer').insertAdjacentHTML('beforeend', `<div class="notice ai-message">${esc(result.answer).replaceAll('\n', '<br>')}<p class="muted">${result.mode === 'llm' ? 'Ответ сформирован языковой моделью по контексту системы.' : 'Ответ сформирован по данным системы.'}</p>${result.sources.length ? `<details><summary>Источники · ${result.sources.length}</summary><ul>${result.sources.map(source => `<li>${esc(source)}</li>`).join('')}</ul></details>` : ''}</div>`);
+    $('chat-message').value = '';
+    $('ai-messages').scrollTop = $('ai-messages').scrollHeight;
     $('chat-status').textContent = '';
   } catch (error) { $('chat-status').textContent = error.message; }
   finally { $('chat-submit').disabled = false; }
