@@ -18,6 +18,7 @@ from playwright.sync_api import expect, sync_playwright
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--dataset-dir', required=True, type=Path)
+    parser.add_argument('--additional-dataset-dir', type=Path)
     parser.add_argument('--browser-channel', default='msedge' if os.name == 'nt' else 'chromium')
     parser.add_argument('--screenshot', type=Path)
     parser.add_argument('--report', type=Path)
@@ -190,6 +191,21 @@ def main():
                 expect(page.locator('#forecast-content table').first.locator('tbody tr')).to_have_count(30)
             assert hashlib.sha256(source.read_bytes()).hexdigest() == datasets[0]['sha256']
             results.append('xlsx-full-C071-data-upload-and-analysis')
+            if args.additional_dataset_dir:
+                for filename, expected_balance, issue_count in [('C018.csv', '574527,21₽', 2), ('C052.csv', '1410874,93₽', 1)]:
+                    source = args.additional_dataset_dir / filename
+                    checksum = hashlib.sha256(source.read_bytes()).hexdigest()
+                    page.locator('#statement-file').set_input_files(str(source))
+                    page.locator('#upload-submit').click()
+                    expect(page.locator('#upload-message')).to_contain_text('Обработка завершена', timeout=60000)
+                    assert ''.join(page.locator('#metric-opening').inner_text().split()) == expected_balance
+                    expect(page.locator('#import-result')).to_contain_text('Остаток последнего дня выписки')
+                    expect(page.locator('#overview-content')).to_contain_text('есть замечания к истории')
+                    expect(page.locator('#gaps-content')).to_contain_text('Кассовые разрывы не обнаружены')
+                    diagnostics = page.locator('#import-result details').filter(has=page.locator('summary', has_text='Расхождения баланса'))
+                    expect(diagnostics.locator('li')).to_have_count(issue_count)
+                    assert hashlib.sha256(source.read_bytes()).hexdigest() == checksum
+                    results.append(f'{filename}: reported last-day balance with {issue_count} local warnings')
             assert not errors, errors
             results.append('mobile-390px-and-no-javascript-errors')
             browser.close()

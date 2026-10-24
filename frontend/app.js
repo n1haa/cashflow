@@ -38,7 +38,10 @@ function balanceNotice(info) {
   if (!info) return '';
   const sources = { balance_eod: 'остатки на конец дня', balance_after: 'балансы после операций', statement_opening: 'начальный остаток из файла' };
   if (!['detected', 'provided'].includes(info.status)) {
-    return notice(`Не удалось автоматически определить исходный остаток. Прогноз кассового разрыва может быть недоступен. ${info.message || ''}`, 'warning')
+    const text = info.statement_closing_balance !== null && info.statement_closing_balance !== undefined
+      ? `Остаток последнего дня выписки: ${money(info.statement_closing_balance)} на ${dateLabel(info.statement_end)}. Он доступен для прогноза от этой даты; в предыдущей истории есть расхождения. ${info.message || ''}`
+      : `Не удалось автоматически определить исходный остаток. Прогноз кассового разрыва может быть недоступен. ${info.message || ''}`;
+    return notice(text, 'warning')
       + (Array.isArray(info.issues) && info.issues.length ? `<details><summary>Расхождения баланса</summary><ul>${info.issues.map(issue => `<li>${esc(issue)}</li>`).join('')}</ul></details>` : '');
   }
   return notice(`Остаток определен автоматически. До начала выписки: ${money(info.statement_opening_balance)}. На конец ${dateLabel(info.statement_end)}: ${money(info.statement_closing_balance)}. Источник: ${sources[info.source] || 'данные выписки'}. Для прогноза от конца выписки используется последний остаток, без повторного добавления операций.`, 'success');
@@ -51,7 +54,7 @@ function renderOverview() {
   const gap = state.gaps.status === 'success' ? gapState(state.gaps.data).title : state.gaps.status === 'error' ? 'Ошибка анализа разрывов' : 'Анализ разрывов не выполнен';
   const period = forecast ? `${dateLabel(forecast.start_date)} — ${dateLabel(forecast.end_date)}` : 'Прогноз не рассчитан';
   $('overview-content').innerHTML = `<div class="metrics">${[
-    metric('opening', 'Исходный остаток', money(summary?.opening_balance), forecast ? `${forecast.opening_balance_source === 'provided' ? 'Введен пользователем' : forecast.opening_balance_source === 'history_eod' ? 'Из выписки' : 'Не определен'} · на конец ${dateLabel(forecast.as_of)}` : 'На дату расчета'),
+    metric('opening', 'Исходный остаток', money(summary?.opening_balance), forecast ? `${forecast.opening_balance_source === 'provided' ? 'Введен пользователем' : forecast.opening_balance_source === 'history_eod' ? 'Из выписки' : forecast.opening_balance_source === 'statement_reported' ? 'Из последнего дня · есть замечания к истории' : 'Не определен'} · на конец ${dateLabel(forecast.as_of)}` : 'На дату расчета'),
     metric('income', 'Ожидаемые поступления', money(summary?.total_income), 'За 30 дней прогноза', 'income'),
     metric('expense', 'Ожидаемые расходы', money(summary?.total_expense), 'За 30 дней прогноза'),
     metric('net', 'Чистый денежный поток', money(summary?.net_cash_flow), 'Ожидаемые поступления минус расходы'),

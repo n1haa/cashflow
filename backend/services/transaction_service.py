@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from backend.schemas import DuplicateGroup, ImportResult, RowError, SourceRow, Transaction
 from backend.services.file_service import FIELD_LABELS, normalize_columns
-from backend.services.balance_service import resolve_statement_balance
+from backend.services.balance_service import last_day_balance, resolve_statement_balance
 
 DIRECTIONS = {
     "income": "income", "поступление": "income", "приход": "income", "кредит": "income",
@@ -145,8 +145,9 @@ def normalize_transactions(frame: pd.DataFrame) -> ImportResult:
             explicit_issue = "Некорректное значение начального остатка"
     balance_info = resolve_statement_balance(transactions, kind=frame.attrs.get("balance_kind", "end_of_day"), explicit_opening=explicit)
     if explicit_issue:
-        balance_info = balance_info.model_copy(update={"status": "invalid", "source": "unavailable", "message": explicit_issue,
-                                                       "statement_opening_balance": None, "statement_closing_balance": None, "issues": [explicit_issue], "explicit_opening_invalid": True})
+        reported = last_day_balance(transactions, balance_info.kind)
+        balance_info = balance_info.model_copy(update={"status": "invalid", "source": "statement_reported" if reported is not None else "unavailable", "message": explicit_issue,
+                                                       "statement_opening_balance": None, "statement_closing_balance": reported, "issues": [explicit_issue], "explicit_opening_invalid": True})
     date_warnings = _date_warnings(transactions)
     date_warnings = [message for message in date_warnings if not message.startswith("Арифметическая сверка")]
     date_warnings.append(balance_info.message)

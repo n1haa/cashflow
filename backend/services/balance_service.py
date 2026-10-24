@@ -7,6 +7,18 @@ from decimal import Decimal, localcontext
 from backend.schemas import StatementBalance, Transaction
 
 
+def last_day_balance(transactions: Sequence[Transaction], kind: str = "end_of_day") -> Decimal | None:
+    """Фактический остаток последнего дня, независимо от сверки предыдущей истории."""
+    if not transactions:
+        return None
+    last_date = max(item.date for item in transactions)
+    last_items = [item for item in transactions if item.date == last_date]
+    if kind == "after_transaction" and len(last_items) != 1:
+        return None
+    values = {item.balance for item in last_items if item.balance is not None and item.balance.is_finite()}
+    return next(iter(values)) if len(values) == 1 else None
+
+
 def resolve_statement_balance(
     transactions: Sequence[Transaction], *, kind: str = "end_of_day",
     explicit_opening: Decimal | None = None,
@@ -15,7 +27,11 @@ def resolve_statement_balance(
     base = dict(kind=kind, explicit_opening_balance=explicit_opening,
                 statement_start=items[0].date if items else None, statement_end=items[-1].date if items else None)
     def unavailable(status, message, issues=None):
-        return StatementBalance(**base, status=status, source="unavailable", message=message, issues=issues or [])
+        reported = last_day_balance(items, kind)
+        if reported is not None:
+            message += "; для прогноза доступен остаток последнего дня из выписки"
+        return StatementBalance(**base, status=status, source="statement_reported" if reported is not None else "unavailable",
+                                message=message, issues=issues or [], statement_closing_balance=reported)
     if not items:
         return unavailable("unknown", "Нет операций для определения остатка")
     values = [value for item in items for value in (item.amount, item.balance) if value is not None]
@@ -37,7 +53,9 @@ def resolve_statement_balance(
             for item in items:
                 running += net(item)
                 if item.balance is not None and item.balance != running:
-                    issues.append(f"Не согласован баланс после операции ID {item.id} за {item.date.isoformat()}")
+                    issues.append(f"Не согласован баланс после операции ID {item.id} за {item.date.isoformat()}: рассчитано {running}, в выписке {item.balance}, разница {item.balance - running}")
+                if item.balance is not None:
+                    running = item.balance
                 if item.balance is None and explicit_opening is None:
                     return unavailable("unknown", "Не у всех операций известен баланс после операции")
         else:
@@ -55,9 +73,6 @@ def resolve_statement_balance(
             for index, (day, operations) in enumerate(sorted(days.items())):
                 day_net = sum((net(item) for item in operations), Decimal(0))
                 balances = {item.balance for item in operations if item.balance is not None}
-                if len(balances) > 1:
-                    issues.append(f"Разные остатки на конец дня {day.isoformat()}")
-                    continue
                 closing = next(iter(balances)) if balances else None
                 if index == 0 and opening is None:
                     if closing is None:
@@ -68,7 +83,9 @@ def resolve_statement_balance(
                     continue
                 running += day_net
                 if closing is not None and running != closing:
-                    issues.append(f"Остаток на конец {day.isoformat()} не согласован с операциями")
+                    issues.append(f"Остаток на конец {day.isoformat()} не согласован с операциями: рассчитано {running}, в выписке {closing}, разница {closing - running}")
+                if closing is not None:
+                    running = closing
                 if closing is None and explicit_opening is None:
                     return unavailable("unknown", "Не для каждого дня известен остаток; сверка выписки неполна")
         if issues:

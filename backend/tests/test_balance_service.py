@@ -95,7 +95,7 @@ def test_explicit_opening_is_checked_and_not_replaced(opening):
 
 
 @pytest.mark.parametrize("mode", ["wrong_eod", "wrong_after", "wrong_explicit", "different_explicit", "malformed_explicit", "different_same_day"])
-def test_inconsistent_balances_block_automatic_forecast_without_modifying_transactions(mode):
+def test_inconsistent_history_preserves_reported_last_balance_without_modifying_transactions(mode):
     data = frame([("2026-01-01", "100", "income", "1100"), ("2026-01-02", "50", "expense", "1050")])
     if mode == "wrong_eod": data.loc[1, "balance"] = "950"
     elif mode == "wrong_after":
@@ -111,8 +111,13 @@ def test_inconsistent_balances_block_automatic_forecast_without_modifying_transa
     before = [item.model_dump() for item in imported.transactions]
     forecast = forecast_cash_flow(imported.transactions, balance_info=imported.balance_info)
     assert forecast.balance_info.status == "invalid"
-    assert forecast.summary.opening_balance is None
-    assert analyze_cash_gaps(forecast).has_cash_gap is None
+    if mode == "different_same_day":
+        assert forecast.summary.opening_balance is None
+        assert analyze_cash_gaps(forecast).has_cash_gap is None
+    else:
+        assert forecast.summary.opening_balance == Decimal("950" if mode in {"wrong_eod", "wrong_after"} else "1050")
+        assert forecast.opening_balance_source == "statement_reported"
+        assert analyze_cash_gaps(forecast).status != "not_available"
     assert [item.model_dump() for item in imported.transactions] == before
 
 
@@ -156,4 +161,33 @@ def test_reimport_replaces_metadata_and_failed_import_preserves_it(client):
     assert client.get('/api/forecast').json() == before
     data.loc[1, 'balance'] = '999'
     client.post('/api/transactions/upload', files={'file': ('invalid.csv', data.to_csv(index=False, sep=';').encode())})
-    assert client.get('/api/forecast').json()['summary']['opening_balance'] is None
+    assert Decimal(client.get('/api/forecast').json()['summary']['opening_balance']) == 999
+
+
+@pytest.mark.parametrize("kind", ["balance", "balance_after"])
+def test_reconciliation_reports_only_local_discrepancies(kind):
+    imported = normalize_transactions(frame([
+        ("2026-01-01", "100", "income", "1100"),
+        ("2026-01-02", "100", "income", "1250"),
+        ("2026-01-03", "100", "income", "1350"),
+        ("2026-01-04", "100", "income", "1450"),
+    ], kind=kind))
+    assert imported.balance_info.status == "invalid"
+    assert len(imported.balance_info.issues) == 1
+    assert "2026-01-02" in imported.balance_info.issues[0]
+    assert imported.balance_info.statement_closing_balance == 1450
+    forecast = forecast_cash_flow(imported.transactions, balance_info=imported.balance_info)
+    assert forecast.summary.opening_balance == 1450
+
+
+def test_one_cent_difference_does_not_block_last_day_balance():
+    imported = normalize_transactions(frame([
+        ("2026-01-01", "100", "income", "1100"),
+        ("2026-01-02", "50", "expense", "1050.01"),
+        ("2026-01-03", "50", "expense", "1000.01"),
+    ]))
+    assert len(imported.balance_info.issues) == 1
+    assert "0.01" in imported.balance_info.issues[0]
+    forecast = forecast_cash_flow(imported.transactions, balance_info=imported.balance_info)
+    assert forecast.summary.opening_balance == Decimal("1000.01")
+    assert forecast.warnings

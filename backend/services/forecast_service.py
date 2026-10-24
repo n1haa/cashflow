@@ -15,7 +15,7 @@ from backend.schemas import (
 from backend.services.category_rules import CATEGORY_LABELS
 from backend.services.category_service import categorize_transaction
 from backend.services.recurring_service import _calendar_date, detect_recurring_transactions
-from backend.services.balance_service import resolve_statement_balance
+from backend.services.balance_service import last_day_balance, resolve_statement_balance
 
 HORIZON_DAYS = 30
 LOOKBACK_DAYS = 90
@@ -64,6 +64,9 @@ def _events(group: RecurringOperation, items: Sequence[Transaction], start: date
 def _opening_balance(history: Sequence[Transaction], as_of: date, provided: Decimal | None, info: StatementBalance) -> tuple[Decimal | None, str]:
     if provided is not None:
         return provided, "provided"
+    reported = last_day_balance(history, info.kind)
+    if history and max(item.date for item in history) == as_of and reported is not None:
+        return reported, "history_eod" if info.status in {"detected", "provided"} else "statement_reported"
     if info.status in {"detected", "provided"} and info.statement_end == as_of and info.statement_closing_balance is not None:
         return info.statement_closing_balance, "history_eod"
     return None, "unavailable"
@@ -101,7 +104,11 @@ def _build_forecast(
     info = resolve_statement_balance(history, kind=balance_info.kind if balance_info else "end_of_day",
                                      explicit_opening=balance_info.explicit_opening_balance if balance_info else None)
     if balance_info and balance_info.explicit_opening_invalid:
-        info = balance_info.model_copy(update={"statement_opening_balance": None, "statement_closing_balance": None})
+        reported = last_day_balance(history, balance_info.kind)
+        info = info.model_copy(update={"status": "invalid", "source": "statement_reported" if reported is not None else "unavailable",
+                                      "message": balance_info.message, "issues": balance_info.issues,
+                                      "explicit_opening_invalid": True, "statement_opening_balance": None,
+                                      "statement_closing_balance": reported})
     balance, balance_source = _opening_balance(history, as_of, opening_balance, info)
     if info.status in {"invalid", "unknown"}:
         warnings.append(info.message)

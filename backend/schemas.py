@@ -181,7 +181,7 @@ class ForecastResult(BaseModel):
     history_window_transactions: int
     history_days: int
     history_lag_days: int | None
-    opening_balance_source: Literal["provided", "history_eod", "unavailable"]
+    opening_balance_source: Literal["provided", "history_eod", "statement_reported", "unavailable"]
     regular_group_ids: list[str]
     excluded_regular_groups: dict[str, str]
     regular_history_transaction_ids: list[int]
