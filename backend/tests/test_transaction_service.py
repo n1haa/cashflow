@@ -58,7 +58,7 @@ def test_directions(frame, value, expected):
     ("amount", "0", "больше нуля"), ("amount", "-10", "больше нуля"),
     ("amount", "abc", "число"), ("direction", "???", "направление"),
     ("direction", "", "направление"), ("counterparty", " ", "Контрагент"),
-    ("description", None, "Назначение"), ("inn", "123", "ИНН"),
+    ("inn", "123", "ИНН"),
     ("inn", "000000000a", "ИНН"), ("inn", "0000000001.0", "ИНН"),
     ("balance", "bad", "остаток"), ("balance", float("inf"), "остаток"),
 ])
@@ -66,6 +66,22 @@ def test_invalid_rows(frame, field, value, error):
     frame.loc[0, field] = value
     with pytest.raises(ValueError, match=error + ".*строке 2"):
         normalize_transactions(frame)
+
+
+@pytest.mark.parametrize("value", [None, "", "   ", float("nan")])
+def test_empty_description_becomes_unknown(frame, value):
+    from backend.services.category_service import categorize_transaction
+    from backend.services.recurring_service import detect_recurring_transactions
+    frame.loc[0, "description"] = value
+    result = normalize_transactions(frame)
+    item = result.transactions[0]
+    assert item.description == "unknown"
+    assert item.amount == Decimal("15000.50")
+    assert result.invalid_transactions == 0
+    assert categorize_transaction(item).category == "unknown"
+    repeated = [item, item.model_copy(update={"id": 2, "date": date(2026, 11, 1)}),
+                item.model_copy(update={"id": 3, "date": date(2026, 12, 1)})]
+    assert detect_recurring_transactions(repeated).groups == []
 
 
 @pytest.mark.parametrize("field", ["date", "amount", "direction", "counterparty", "inn", "description"])

@@ -74,6 +74,7 @@ def _normalize_row(row: pd.Series, transaction_id: int) -> Transaction:
     operation_date = parse_date(row["date"])
     amount, direction = _amount_and_direction(row)
     text_fields = {field: clean_text(row[field]) for field in ("counterparty", "inn", "description")}
+    text_fields["description"] = text_fields["description"] or "unknown"
     for field, value in text_fields.items():
         if not value and field != "inn":
             raise ValueError(f"Не заполнено обязательное поле: {FIELD_LABELS[field]}")

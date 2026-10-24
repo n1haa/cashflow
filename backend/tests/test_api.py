@@ -62,6 +62,14 @@ def test_no_file(client):
     assert client.post("/api/transactions/upload").status_code == 422
 
 
+def test_upload_empty_payment_purpose(client, csv_content):
+    content = csv_content.replace(" Оплата  услуг ".encode(), b"")
+    response = upload(client, content)
+    assert response.status_code == 200
+    assert response.json()["transactions"][0]["description"] == "unknown"
+    assert client.post("/api/transactions/categorize").json()["categorizations"][0]["category"] == "unknown"
+
+
 def test_sample(client):
     from pathlib import Path
     sample = Path(__file__).resolve().parents[2] / "data" / "sample.csv"

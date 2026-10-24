@@ -153,7 +153,7 @@ def detect_recurring_transactions(
         if category is None:
             category = categorize_transaction(item)
         description = normalize_recurring_description(item.description)
-        if description in {"", "оплата", "платеж", "перевод", "оплата по счету", "частичная оплата", "доплата"}:
+        if description in {"", "unknown", "оплата", "платеж", "перевод", "оплата по счету", "частичная оплата", "доплата"}:
             description = f"неоднозначное назначение операции {item.id}"
         key = (normalize_category_text(item.counterparty), item.inn or "", item.direction, category.category, description)
         buckets[key].append(item)
