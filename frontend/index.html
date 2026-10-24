@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Загрузка банковских выписок, категории, регулярные операции и прогноз денежных потоков CashFlow AI.">
+  <title>CashFlow AI — денежный поток</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <script type="module" src="/assets/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Перейти к содержимому</a>
+  <aside class="sidebar">
+    <a class="brand" href="#overview"><span class="brand-mark" aria-hidden="true">↗</span><span>CashFlow <b>AI</b></span></a>
+    <p class="nav-caption">РАБОЧЕЕ ПРОСТРАНСТВО</p>
+    <nav aria-label="Основная навигация">
+      <a href="#overview" aria-current="page">Обзор</a>
+      <a href="#upload">Загрузить выписку</a>
+      <a href="#transactions">Транзакции</a>
+      <a href="#recurring">Регулярные операции</a>
+      <a href="#forecast">Прогноз на 30 дней</a>
+      <a href="#gaps">Кассовые разрывы</a>
+    </nav>
+    <div class="sidebar-note"><span class="connection-dot"></span>Локальное рабочее пространство<p>Последняя выписка хранится до перезапуска сервера.</p></div>
+  </aside>
+  <main id="main">
+    <header class="topbar"><span>Финансы бизнеса <span class="muted">/ Анализ выписки</span></span><a href="#forecast">Прогноз на 30 дней ↗</a></header>
+    <section id="overview" class="section">
+      <div class="section-heading"><div><p class="eyebrow">CASHFLOW AI</p><h1>Ваш денежный поток</h1><p class="muted">От банковской выписки к понятной картине ближайших 30 дней.</p></div><a class="button primary" href="#upload">Загрузить выписку <span aria-hidden="true">↑</span></a></div>
+      <div id="global-message" role="status" aria-live="polite"></div>
+      <div id="overview-content" aria-live="polite"><div class="notice">Загружаем состояние рабочего пространства…</div></div>
+    </section>
+    <section id="upload" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">01 / ДАННЫЕ</p><h2>Банковская выписка</h2><p class="muted">CSV или XLSX, до 10 МиБ. Новая выписка заменит предыдущую.</p></div></div>
+      <form id="upload-form">
+        <label class="file-zone" id="file-zone"><span class="upload-icon" aria-hidden="true">↑</span><strong>Выберите или перетащите файл</strong><span class="muted">CSV в UTF-8 · XLSX, первый лист</span><input id="statement-file" name="file" type="file" accept=".csv,.xlsx" required aria-label="Выбрать банковскую выписку"></label>
+        <div class="form-footer"><span id="file-info" class="muted">Файл не выбран</span><button id="upload-submit" class="button primary" type="submit">Обработать выписку</button></div>
+      </form>
+      <div id="upload-message" role="status" aria-live="polite"></div>
+      <div id="import-result"></div>
+    </section>
+    <section class="section panel" aria-labelledby="settings-heading">
+      <div class="section-heading"><div><h2 id="settings-heading">Параметры прогноза</h2><p class="muted">Без даты используется сегодняшний день. Остаток нужен на конец даты расчета.</p></div></div>
+      <form id="forecast-form" class="settings-form">
+        <label>Дата расчета<input id="as-of" name="as_of" type="date"></label>
+        <label>Известный остаток, ₽<input id="opening-balance" name="opening_balance" type="text" inputmode="decimal" placeholder="Неизвестен" autocomplete="off"></label>
+        <button id="refresh-all" class="button secondary" type="submit">Обновить результаты</button>
+      </form>
+      <p id="settings-message" class="muted" role="status" aria-live="polite"></p>
+    </section>
+    <section id="transactions" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">02 / ОПЕРАЦИИ</p><h2>Транзакции</h2></div><button class="button subtle" data-action="retry" data-module="categories">Обновить категории</button></div>
+      <div class="filters"><label class="search-label">Поиск<input id="transaction-search" type="search" placeholder="Контрагент или назначение"></label><label>Направление<select id="transaction-direction"><option value="all">Все операции</option><option value="income">Поступления</option><option value="expense">Списания</option></select></label></div>
+      <div id="category-status" aria-live="polite"></div>
+      <div id="transactions-content" aria-live="polite"></div>
+    </section>
+    <section id="recurring" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">03 / ПОВТОРЯЕМОСТЬ</p><h2>Регулярные операции</h2><p class="muted">Статус и периодичность определяет анализ истории.</p></div><button class="button subtle" data-action="retry" data-module="recurring">Обновить</button></div>
+      <label class="compact-filter">Показать<select id="recurring-filter"><option value="all">Все повторные группы</option><option value="confirmed">Подтвержденные</option><option value="potential">Потенциальные</option><option value="uncertain">Неопределенные</option></select></label>
+      <div id="recurring-content" aria-live="polite"></div>
+    </section>
+    <section id="forecast" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">04 / ПЛАНИРОВАНИЕ</p><h2>Прогноз на 30 дней</h2><p class="muted">Сценарная оценка на основе истории и регулярных операций.</p></div><button class="button subtle" data-action="retry" data-module="forecast">Обновить</button></div>
+      <div id="forecast-content" aria-live="polite"></div>
+    </section>
+    <section id="gaps" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">05 / ОСТАТОК</p><h2>Кассовые разрывы</h2></div><button class="button subtle" data-action="retry" data-module="gaps">Обновить</button></div>
+      <div id="gaps-content" aria-live="polite"></div>
+    </section>
+    <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров.</footer>
+  </main>
+</body>
+</html>
