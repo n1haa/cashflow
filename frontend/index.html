@@ -20,6 +20,8 @@
       <a href="#recurring">Регулярные операции</a>
       <a href="#forecast">Прогноз на 30 дней</a>
       <a href="#gaps">Кассовые разрывы</a>
+      <a href="#events">Будущие события</a>
+      <a href="#assistant">Ассистент</a>
     </nav>
     <div class="sidebar-note"><span class="connection-dot"></span>Локальное рабочее пространство<p>Последняя выписка хранится до перезапуска сервера.</p></div>
   </aside>
@@ -67,7 +69,24 @@
       <div class="section-heading"><div><p class="eyebrow">05 / ОСТАТОК</p><h2>Кассовые разрывы</h2></div><button class="button subtle" data-action="retry" data-module="gaps">Обновить</button></div>
       <div id="gaps-content" aria-live="polite"></div>
     </section>
-    <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров.</footer>
+    <section id="events" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">06 / ПЛАНИРОВАНИЕ</p><h2>Будущие события</h2><p class="muted">Добавьте ожидаемые оплаты и расходы — они попадут в прогноз на выбранную дату.</p></div></div>
+      <form id="event-form" class="settings-form">
+        <label>Дата<input id="event-date" type="date" required></label>
+        <label>Описание<input id="event-description" type="text" maxlength="200" placeholder="Например, оплата счета №15" required></label>
+        <label>Направление<select id="event-direction"><option value="income">Поступление</option><option value="expense">Списание</option></select></label>
+        <label>Сумма, ₽<input id="event-amount" type="text" inputmode="decimal" placeholder="100000" required></label>
+        <label>Категория<input id="event-category" type="text" maxlength="80" placeholder="Выручка, аренда…" value="other"></label>
+        <button class="button primary" type="submit">Добавить событие</button>
+      </form>
+      <p id="event-message" class="muted" role="status" aria-live="polite"></p><div id="events-content"></div>
+    </section>
+    <section id="assistant" class="section panel">
+      <div class="section-heading"><div><p class="eyebrow">07 / АССИСТЕНТ</p><h2>Вопросы по финансам</h2><p class="muted">Ответы строятся по вашей выписке, прогнозу и будущим событиям с указанием источников.</p></div></div>
+      <form id="chat-form" class="chat-form"><label for="chat-message">Ваш вопрос</label><textarea id="chat-message" maxlength="2000" rows="3" placeholder="Почему ожидается кассовый разрыв? Какие платежи предстоят?" required></textarea><button id="chat-submit" class="button primary" type="submit">Спросить</button></form>
+      <p id="chat-status" class="muted" role="status" aria-live="polite"></p><div id="chat-answer" aria-live="polite"></div>
+    </section>
+    <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров. Данные хранятся в памяти сервера до перезапуска; для нескольких пользователей нужна авторизация и постоянная БД.</footer>
   </main>
 </body>
 </html>

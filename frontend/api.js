@@ -11,6 +11,9 @@ export const contracts = {
   recurring: data => data && array(data.groups) && Number.isInteger(data.total_groups),
   forecast: data => data && array(data.daily) && data.summary && typeof data.summary === 'object' && typeof data.start_date === 'string',
   gaps: data => data && ['detected', 'no_gaps', 'not_available'].includes(data.status) && array(data.gaps),
+  events: data => array(data) && data.every(event => event && Number.isInteger(event.id)),
+  event: data => data && Number.isInteger(data.id),
+  chat: data => data && typeof data.answer === 'string' && array(data.sources),
 };
 
 export async function request(path, options = {}, validate = () => true, fetcher = globalThis.fetch, timeout = 60000) {
@@ -18,6 +21,7 @@ export async function request(path, options = {}, validate = () => true, fetcher
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
     const response = await fetcher(path, { ...options, signal: controller.signal, headers: { Accept: 'application/json', ...options.headers } });
+    if (response.status === 204) return null;
     let data;
     try { data = await response.json(); }
     catch { throw new ApiError('Сервер вернул ответ в неизвестном формате. Повторите запрос.', response.status); }
@@ -53,4 +57,8 @@ export const api = {
   recurring: () => request('/api/transactions/recurring', {}, contracts.recurring),
   forecast: query => request(`/api/forecast${query}`, {}, contracts.forecast),
   gaps: query => request(`/api/forecast/cash-gaps${query}`, {}, contracts.gaps),
+  events: () => request('/api/events', {}, contracts.events),
+  addEvent(payload) { return request('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, contracts.event); },
+  deleteEvent(id) { return request(`/api/events/${id}`, { method: 'DELETE' }); },
+  chat(message) { return request('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message }) }, contracts.chat); },
 };

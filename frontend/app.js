@@ -4,7 +4,7 @@ import { escapeHTML as esc, money, dateLabel, frequencyNames, statusNames, gapSt
 const $ = id => document.getElementById(id);
 const blank = () => ({ status: 'idle', data: null, error: '' });
 const state = { transactions: blank(), categories: blank(), recurring: blank(), forecast: blank(), gaps: blank(),
-  imported: null, loadedFilename: '', selectedFile: null, busy: false, query: '', generation: 0, transactionPage: 1, recurringPage: 1 };
+  imported: null, loadedFilename: '', selectedFile: null, busy: false, query: '', generation: 0, transactionPage: 1, recurringPage: 1, events: [] };
 
 function notice(text, tone = '', retry = '') {
   return `<div class="notice ${esc(tone)}">${esc(text)}${retry ? `<br><button class="button secondary" data-action="retry" data-module="${esc(retry)}">Повторить запрос</button>` : ''}</div>`;
@@ -125,7 +125,12 @@ function renderGaps() {
     + data.gaps.filter(Boolean).map(gap => `<article class="gap-card"><h3>Разрыв с ${esc(dateLabel(gap.start_date))} ${badge(gap.status)}</h3><div class="mini-metrics"><span>Дефицит: <strong>${esc(money(gap.maximum_deficit))}</strong></span><span>Минимум: <strong>${esc(money(gap.minimum_balance))}</strong></span><span>Длительность: <strong>${esc(gap.duration_days ?? 'Нет данных')} дн.</strong></span><span>Восстановление: <strong>${esc(gap.recovery_date ? dateLabel(gap.recovery_date) : 'Не найдено в прогнозном окне')}</strong></span></div>${gap.starts_before_forecast ? '<p class="muted">Исходный остаток уже был отрицательным; начало до прогноза неизвестно.</p>' : ''}<details><summary>Потоки и связанные события</summary><p>В день начала: поступления ${esc(money(gap.start_day?.income))}; расходы ${esc(money(gap.start_day?.expense))}.</p><p>В день восстановления: поступления ${esc(money(gap.recovery_day?.income))}; расходы ${esc(money(gap.recovery_day?.expense))}.</p>${Array.isArray(gap.related_events) && gap.related_events.length ? table('Связанные регулярные события', ['Дата', 'Категория', 'Направление', 'Сумма'], gap.related_events.filter(Boolean).map(event => `<tr><td>${esc(dateLabel(event.date))}</td><td>${esc(event.category || 'Не определено')}</td><td>${esc(event.direction === 'income' ? 'Поступление' : 'Списание')}</td><td class="number">${esc(money(event.amount))}</td></tr>`)) : '<p class="muted">Конкретные прогнозные события не предоставлены; доступны дневные показатели.</p>'}<p class="muted">Это контекст изменения остатка, а не доказанная причина дефицита.</p></details></article>`).join('') + warnings(data);
 }
 
-function render() { renderOverview(); renderImport(); renderTransactions(); renderRecurring(); renderForecast(); renderGaps(); }
+function renderEvents() {
+  const root = $('events-content');
+  if (!state.events.length) { root.innerHTML = notice('Будущих событий пока нет.'); return; }
+  root.innerHTML = table('Будущие события', ['Дата', 'Событие', 'Направление', 'Сумма', 'Источник', ''], state.events.map(event => `<tr><td class="number">${esc(dateLabel(event.date))}</td><td>${esc(event.description)}<small class="muted" style="display:block">${esc(event.category || 'other')}</small></td><td>${event.direction === 'income' ? 'Поступление' : 'Списание'}</td><td class="number">${esc(money(event.amount))}</td><td>Ручной ввод</td><td><button class="button subtle" data-action="delete-event" data-id="${event.id}">Удалить</button></td></tr>`));
+}
+function render() { renderOverview(); renderImport(); renderTransactions(); renderRecurring(); renderForecast(); renderGaps(); renderEvents(); }
 function setBusy(busy) {
   state.busy = busy;
   ['upload-submit', 'statement-file', 'refresh-all', 'as-of', 'opening-balance'].forEach(id => { $(id).disabled = busy; });
@@ -155,7 +160,8 @@ async function loadExisting() {
   if (state.busy) return;
   setBusy(true); state.transactions = { ...blank(), status: 'loading' }; render();
   try {
-    const rows = await api.transactions();
+    const [rows, events] = await Promise.all([api.transactions(), api.events()]);
+    state.events = events;
     state.transactions = { status: 'success', data: rows, error: '' };
     state.generation++; clearAnalysis(); render();
     if (rows.length) { $('global-message').innerHTML = notice('Загружена последняя выписка из памяти сервера. Имя файла и исходные номера строк после обновления страницы недоступны.'); await analyze(); }
@@ -233,3 +239,32 @@ function activeNav() {
   document.querySelectorAll('nav a').forEach(link => { if (link.getAttribute('href') === hash) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current'); });
 }
 window.addEventListener('hashchange', activeNav); activeNav(); render(); loadExisting();
+
+$('event-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const amount = $('event-amount').value.trim().replaceAll(' ', '').replace(',', '.');
+  if (!/^[0-9]+(?:\.[0-9]{1,2})?$/.test(amount) || Number(amount) <= 0) { $('event-message').textContent = 'Введите положительную сумму, например 12500,50.'; return; }
+  try {
+    const created = await api.addEvent({ date: $('event-date').value, description: $('event-description').value.trim(), direction: $('event-direction').value, amount, category: $('event-category').value.trim() || 'other' });
+    state.events.push(created); renderEvents();
+    if (state.transactions.data?.length) { state.query = forecastQuery($('as-of').value, $('opening-balance').value); await Promise.allSettled(['forecast', 'gaps'].map(name => loadModule(name, state.generation))); $('event-message').textContent = 'Событие добавлено; прогноз и анализ рисков пересчитаны.'; }
+    else $('event-message').textContent = 'Событие добавлено. Загрузите выписку, чтобы учесть его в прогнозе.';
+  } catch (error) { $('event-message').textContent = error.message; }
+});
+
+$('chat-form').addEventListener('submit', async event => {
+  event.preventDefault(); $('chat-submit').disabled = true; $('chat-status').textContent = 'Ищем подтверждение в данных…'; $('chat-answer').innerHTML = '';
+  try {
+    const result = await api.chat($('chat-message').value.trim());
+    $('chat-answer').innerHTML = `<div class="notice">${esc(result.answer).replaceAll('\n', '<br>')}<p class="muted">${result.mode === 'llm' ? 'Ответ сформирован языковой моделью по контексту системы.' : 'Ответ сформирован по данным системы.'}</p>${result.sources.length ? `<details><summary>Источники · ${result.sources.length}</summary><ul>${result.sources.map(source => `<li>${esc(source)}</li>`).join('')}</ul></details>` : ''}</div>`;
+    $('chat-status').textContent = '';
+  } catch (error) { $('chat-status').textContent = error.message; }
+  finally { $('chat-submit').disabled = false; }
+});
+
+document.addEventListener('click', async event => {
+  const button = event.target.closest('button[data-action="delete-event"]');
+  if (!button) return;
+  try { await api.deleteEvent(button.dataset.id); state.events = state.events.filter(item => item.id !== Number(button.dataset.id)); renderEvents(); $('event-message').textContent = 'Событие удалено.'; }
+  catch (error) { $('event-message').textContent = error.message; }
+});

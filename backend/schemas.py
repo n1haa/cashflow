@@ -141,6 +141,36 @@ class ForecastEvent(BaseModel):
     amount: Decimal
 
 
+class PlannedEvent(BaseModel):
+    id: int
+    date: date
+    description: str = Field(min_length=1, max_length=200)
+    direction: Literal["income", "expense"]
+    amount: Decimal = Field(gt=0, allow_inf_nan=False)
+    category: str = "other"
+    source: Literal["manual"] = "manual"
+
+
+class PlannedEventInput(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    date: date
+    description: str = Field(min_length=1, max_length=200)
+    direction: Literal["income", "expense"]
+    amount: Decimal = Field(gt=0, allow_inf_nan=False)
+    category: str = Field(default="other", max_length=80)
+
+
+class ChatRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    message: str = Field(min_length=1, max_length=2000)
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    sources: list[str] = Field(default_factory=list)
+    mode: Literal["grounded_local", "nemotron_rag", "llm"] = "grounded_local"
+
+
 class ForecastDay(BaseModel):
     date: date
     income: Decimal

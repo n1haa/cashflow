@@ -33,6 +33,8 @@ async def upload_transactions(request: Request, file: UploadFile = File(...)) ->
     request.app.state.transactions = tuple(result.transactions)
     request.app.state.categorizations = {}
     request.app.state.balance_info = result.balance_info
+    request.app.state.last_forecast = None
+    request.app.state.last_gaps = None
     return result
 
 

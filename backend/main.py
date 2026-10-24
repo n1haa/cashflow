@@ -5,6 +5,7 @@ from pathlib import Path
 
 from backend.api.transactions import router
 from backend.api.forecast import router as forecast_router
+from backend.api.planning import router as planning_router
 
 
 def create_app() -> FastAPI:
@@ -12,8 +13,14 @@ def create_app() -> FastAPI:
     app.state.transactions = ()
     app.state.categorizations = {}
     app.state.balance_info = None
+    app.state.planned_events = []
+    app.state.next_event_id = 1
+    app.state.last_forecast = None
+    app.state.last_gaps = None
+    app.state.embedding_cache = {}
     app.include_router(router)
     app.include_router(forecast_router)
+    app.include_router(planning_router)
     frontend = Path(__file__).resolve().parents[1] / "frontend"
     app.mount("/assets", StaticFiles(directory=frontend), name="frontend-assets")
 
