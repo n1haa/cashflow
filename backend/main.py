@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 
 from backend.api.transactions import router
+from backend.api.forecast import router as forecast_router
 
 
 def create_app() -> FastAPI:
@@ -8,6 +9,7 @@ def create_app() -> FastAPI:
     app.state.transactions = ()
     app.state.categorizations = {}
     app.include_router(router)
+    app.include_router(forecast_router)
     return app
 
 

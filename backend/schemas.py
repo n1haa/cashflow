@@ -115,3 +115,65 @@ class RecurringResult(BaseModel):
     frequency_distribution: dict[str, int]
     ungrouped_transaction_ids: list[int]
     groups: list[RecurringOperation]
+
+
+class ForecastEvent(BaseModel):
+    group_id: str
+    date: date
+    category: str
+    direction: Literal["income", "expense"]
+    amount: Decimal
+
+
+class ForecastDay(BaseModel):
+    date: date
+    income: Decimal
+    expense: Decimal
+    net_cash_flow: Decimal
+    cumulative_cash_flow: Decimal
+    balance: Decimal | None
+    regular_income: Decimal
+    regular_expense: Decimal
+    historical_income: Decimal
+    historical_expense: Decimal
+
+
+class ForecastCategory(BaseModel):
+    category: str
+    category_name: str
+    income: Decimal
+    expense: Decimal
+    net_cash_flow: Decimal
+
+
+class ForecastSummary(BaseModel):
+    total_income: Decimal
+    total_expense: Decimal
+    net_cash_flow: Decimal
+    opening_balance: Decimal | None
+    closing_balance: Decimal | None
+
+
+class ForecastResult(BaseModel):
+    method: str = "recurring_plus_historical_mean_v1"
+    as_of: date
+    start_date: date
+    end_date: date
+    horizon_days: int = 30
+    history_start: date | None
+    history_end: date | None
+    history_transactions: int
+    history_window_transactions: int
+    history_days: int
+    history_lag_days: int | None
+    opening_balance_source: Literal["provided", "history_eod", "unavailable"]
+    regular_group_ids: list[str]
+    excluded_regular_groups: dict[str, str]
+    regular_history_transaction_ids: list[int]
+    residual_history_transaction_ids: list[int]
+    excluded_history_transaction_ids: list[int]
+    scheduled_events: list[ForecastEvent]
+    daily: list[ForecastDay]
+    categories: list[ForecastCategory]
+    summary: ForecastSummary
+    warnings: list[str]
