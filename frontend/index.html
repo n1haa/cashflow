@@ -40,10 +40,10 @@
       <div id="import-result"></div>
     </section>
     <section class="section panel" aria-labelledby="settings-heading">
-      <div class="section-heading"><div><h2 id="settings-heading">Параметры прогноза</h2><p class="muted">Без даты используется сегодняшний день. Остаток нужен на конец даты расчета.</p></div></div>
+      <div class="section-heading"><div><h2 id="settings-heading">Параметры прогноза</h2><p class="muted">Без даты расчет строится от последнего дня выписки. Для более поздней даты нужен известный остаток на ее конец.</p></div></div>
       <form id="forecast-form" class="settings-form">
         <label>Дата расчета<input id="as-of" name="as_of" type="date"></label>
-        <label>Известный остаток, ₽<input id="opening-balance" name="opening_balance" type="text" inputmode="decimal" placeholder="Неизвестен" autocomplete="off"></label>
+        <label>Известный остаток, ₽<input id="opening-balance" name="opening_balance" type="text" inputmode="decimal" placeholder="Автоматически из выписки" autocomplete="off"></label>
         <button id="refresh-all" class="button secondary" type="submit">Обновить результаты</button>
       </form>
       <p id="settings-message" class="muted" role="status" aria-live="polite"></p>

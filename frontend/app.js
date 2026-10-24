@@ -34,6 +34,16 @@ function metric(id, label, value, note = '', tone = '') {
   return `<div class="metric"><div class="metric-label">${esc(label)}</div><div id="metric-${id}" class="metric-value ${tone}">${esc(value)}</div><div class="metric-note">${esc(note)}</div></div>`;
 }
 
+function balanceNotice(info) {
+  if (!info) return '';
+  const sources = { balance_eod: 'остатки на конец дня', balance_after: 'балансы после операций', statement_opening: 'начальный остаток из файла' };
+  if (!['detected', 'provided'].includes(info.status)) {
+    return notice(`Не удалось автоматически определить исходный остаток. Прогноз кассового разрыва может быть недоступен. ${info.message || ''}`, 'warning')
+      + (Array.isArray(info.issues) && info.issues.length ? `<details><summary>Расхождения баланса</summary><ul>${info.issues.map(issue => `<li>${esc(issue)}</li>`).join('')}</ul></details>` : '');
+  }
+  return notice(`Остаток определен автоматически. До начала выписки: ${money(info.statement_opening_balance)}. На конец ${dateLabel(info.statement_end)}: ${money(info.statement_closing_balance)}. Источник: ${sources[info.source] || 'данные выписки'}. Для прогноза от конца выписки используется последний остаток, без повторного добавления операций.`, 'success');
+}
+
 function renderOverview() {
   const forecast = state.forecast.status === 'success' ? state.forecast.data : null;
   const summary = forecast?.summary;
@@ -41,7 +51,7 @@ function renderOverview() {
   const gap = state.gaps.status === 'success' ? gapState(state.gaps.data).title : state.gaps.status === 'error' ? 'Ошибка анализа разрывов' : 'Анализ разрывов не выполнен';
   const period = forecast ? `${dateLabel(forecast.start_date)} — ${dateLabel(forecast.end_date)}` : 'Прогноз не рассчитан';
   $('overview-content').innerHTML = `<div class="metrics">${[
-    metric('opening', 'Исходный остаток', money(summary?.opening_balance), forecast ? `На конец ${dateLabel(forecast.as_of)}` : 'На дату расчета'),
+    metric('opening', 'Исходный остаток', money(summary?.opening_balance), forecast ? `${forecast.opening_balance_source === 'provided' ? 'Введен пользователем' : forecast.opening_balance_source === 'history_eod' ? 'Из выписки' : 'Не определен'} · на конец ${dateLabel(forecast.as_of)}` : 'На дату расчета'),
     metric('income', 'Ожидаемые поступления', money(summary?.total_income), 'За 30 дней прогноза', 'income'),
     metric('expense', 'Ожидаемые расходы', money(summary?.total_expense), 'За 30 дней прогноза'),
     metric('net', 'Чистый денежный поток', money(summary?.net_cash_flow), 'Ожидаемые поступления минус расходы'),
@@ -55,6 +65,7 @@ function renderImport() {
   if (!data) { $('import-result').innerHTML = ''; return; }
   const errors = Array.isArray(data.errors) ? data.errors : [];
   $('import-result').innerHTML = notice(`${data.message || 'Выписка обработана'}. Всего операций: ${data.total_transactions}; без ошибок: ${data.valid_transactions ?? 'Нет данных'}; с ошибками данных: ${data.invalid_transactions ?? 'Нет данных'}; повторений: ${data.duplicates ?? 'Нет данных'}.`, data.status === 'partial_success' ? 'warning' : 'success')
+    + balanceNotice(data.balance_info)
     + (errors.length ? `<details><summary>Проверить ошибки строк · ${errors.length}</summary><ul>${errors.map(error => `<li>Строка ${esc(error.source_row)}${error.operation_id ? ` · ${esc(error.operation_id)}` : ''}: ${esc(error.message)}</li>`).join('')}</ul></details>` : '') + warnings(data);
 }
 
@@ -93,6 +104,8 @@ function renderForecast() {
   const data = state.forecast.data;
   const days = data.daily.filter(Boolean);
   $('forecast-content').innerHTML = `<div class="mini-metrics"><span>Период: <strong>${esc(dateLabel(data.start_date))} — ${esc(dateLabel(data.end_date))}</strong></span><span>Дневных строк: <strong>${days.length}</strong></span></div>`
+    + (data.as_of_source === 'statement_end' ? notice(`Автоматический расчет от конца выписки ${dateLabel(data.as_of)}. Это исторический срез, а не текущий остаток счета.`) : '')
+    + balanceNotice(data.balance_info)
     + (data.summary.opening_balance === null || data.summary.opening_balance === undefined ? notice('Исходный остаток неизвестен. Показано изменение денежных средств; абсолютный баланс не рассчитан.', 'warning') : '')
     + (days.length !== 30 ? notice('Прогноз содержит неполный набор дневных данных. Показаны только полученные строки.', 'warning') : '')
     + chartMarkup(days) + warnings(data)

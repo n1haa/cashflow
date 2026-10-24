@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from backend.schemas import DuplicateGroup, ImportResult, RowError, SourceRow, Transaction
 from backend.services.file_service import FIELD_LABELS, normalize_columns
+from backend.services.balance_service import resolve_statement_balance
 
 DIRECTIONS = {
     "income": "income", "поступление": "income", "приход": "income", "кредит": "income",
@@ -79,7 +80,7 @@ def _normalize_row(row: pd.Series, transaction_id: int) -> Transaction:
     if text_fields["inn"] and not re.fullmatch(r"(?:[0-9]{10}|[0-9]{12})", text_fields["inn"]):
         raise ValueError("Некорректный ИНН: ожидается строка из 10 или 12 цифр")
     try:
-        balance = parse_money(row["balance"])
+        balance = parse_money(row["balance"]) if clean_text(row.get("balance")) else None
     except ValueError:
         raise ValueError("Некорректный остаток на счете") from None
     return Transaction(
@@ -130,11 +131,29 @@ def normalize_transactions(frame: pd.DataFrame) -> ImportResult:
         if transactions[-1].inn is None:
             errors.append(RowError(**source.model_dump()))
     groups = _duplicate_groups(transactions)
+    explicit = None
+    explicit_issue = None
+    if "statement_opening" in frame.columns:
+        try:
+            values = {parse_money(value) for value in frame["statement_opening"] if clean_text(value)}
+            if len(values) > 1:
+                explicit_issue = "В столбце начального остатка указаны разные значения"
+            elif values:
+                explicit = next(iter(values))
+        except ValueError:
+            explicit_issue = "Некорректное значение начального остатка"
+    balance_info = resolve_statement_balance(transactions, kind=frame.attrs.get("balance_kind", "end_of_day"), explicit_opening=explicit)
+    if explicit_issue:
+        balance_info = balance_info.model_copy(update={"status": "invalid", "source": "unavailable", "message": explicit_issue,
+                                                       "statement_opening_balance": None, "statement_closing_balance": None, "issues": [explicit_issue], "explicit_opening_invalid": True})
+    date_warnings = _date_warnings(transactions)
+    date_warnings = [message for message in date_warnings if not message.startswith("Арифметическая сверка")]
+    date_warnings.append(balance_info.message)
     return ImportResult(
         status="partial_success" if errors else "success",
         message="Выписка обработана с ошибками данных" if errors else "Выписка успешно обработана",
         total_transactions=len(transactions), valid_transactions=len(transactions) - len(errors),
         invalid_transactions=len(errors), errors=errors, source_rows=source_rows,
         duplicates=sum(len(group.transaction_ids) - 1 for group in groups),
-        duplicate_groups=groups, warnings=_date_warnings(transactions), transactions=transactions,
+        duplicate_groups=groups, warnings=date_warnings, transactions=transactions, balance_info=balance_info,
     )

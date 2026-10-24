@@ -1,0 +1,122 @@
+{
+  "datasets": [
+    {
+      "file": "C071.csv",
+      "sha256": "5cc886333684098ee4717729819e20b1128f22f8e8b48661fa4eec78e015c0ef",
+      "transactions": 614,
+      "balance_info": {
+        "status": "detected",
+        "kind": "end_of_day",
+        "source": "balance_eod",
+        "message": "Остатки выписки определены и согласованы с операциями; полнота выписки предполагается",
+        "statement_start": "2024-10-01",
+        "statement_end": "2026-09-30",
+        "statement_opening_balance": "6484608.48",
+        "statement_closing_balance": "3756563.37",
+        "explicit_opening_balance": null,
+        "issues": [],
+        "explicit_opening_invalid": false
+      },
+      "as_of": "2026-09-30",
+      "as_of_source": "statement_end",
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-30",
+      "summary": {
+        "total_income": "8448890.98",
+        "total_expense": "9133074.70",
+        "net_cash_flow": "-684183.72",
+        "opening_balance": "3756563.37",
+        "closing_balance": "3072379.65"
+      },
+      "first_forecast_day": {
+        "date": "2026-10-01",
+        "income": "281629.70",
+        "expense": "155930.93",
+        "net_cash_flow": "125698.77",
+        "cumulative_cash_flow": "125698.77",
+        "balance": "3882262.14",
+        "regular_income": "0.00",
+        "regular_expense": "1990.00",
+        "historical_income": "281629.70",
+        "historical_expense": "153940.93"
+      },
+      "cash_gaps": {
+        "analysis_version": "cash-gaps-v1",
+        "forecast_method": "recurring_plus_historical_mean_v1",
+        "status": "no_gaps",
+        "has_cash_gap": false,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-30",
+        "analyzed_days": 30,
+        "opening_balance": "3756563.37",
+        "opening_balance_negative": false,
+        "gap_count": 0,
+        "ongoing_count": 0,
+        "first_gap_date": null,
+        "minimum_balance": "2022734.55",
+        "maximum_deficit": "0",
+        "total_deficit_days": 0,
+        "gaps": []
+      }
+    },
+    {
+      "file": "C015.csv",
+      "sha256": "d3334ca3beeb7ca6ac5986b80c6ccfafd63d1cbd8b1d49a390ed093a0347125e",
+      "transactions": 2455,
+      "balance_info": {
+        "status": "detected",
+        "kind": "end_of_day",
+        "source": "balance_eod",
+        "message": "Остатки выписки определены и согласованы с операциями; полнота выписки предполагается",
+        "statement_start": "2024-10-01",
+        "statement_end": "2026-09-30",
+        "statement_opening_balance": "400854.05",
+        "statement_closing_balance": "518152.13",
+        "explicit_opening_balance": null,
+        "issues": [],
+        "explicit_opening_invalid": false
+      },
+      "as_of": "2026-09-30",
+      "as_of_source": "statement_end",
+      "start_date": "2026-10-01",
+      "end_date": "2026-10-30",
+      "summary": {
+        "total_income": "1822130.74",
+        "total_expense": "1833668.33",
+        "net_cash_flow": "-11537.59",
+        "opening_balance": "518152.13",
+        "closing_balance": "506614.54"
+      },
+      "first_forecast_day": {
+        "date": "2026-10-01",
+        "income": "60737.69",
+        "expense": "57572.41",
+        "net_cash_flow": "3165.28",
+        "cumulative_cash_flow": "3165.28",
+        "balance": "521317.41",
+        "regular_income": "0.00",
+        "regular_expense": "0.00",
+        "historical_income": "60737.69",
+        "historical_expense": "57572.41"
+      },
+      "cash_gaps": {
+        "analysis_version": "cash-gaps-v1",
+        "forecast_method": "recurring_plus_historical_mean_v1",
+        "status": "no_gaps",
+        "has_cash_gap": false,
+        "start_date": "2026-10-01",
+        "end_date": "2026-10-30",
+        "analyzed_days": 30,
+        "opening_balance": "518152.13",
+        "opening_balance_negative": false,
+        "gap_count": 0,
+        "ongoing_count": 0,
+        "first_gap_date": null,
+        "minimum_balance": "429517.41",
+        "maximum_deficit": "0",
+        "total_deficit_days": 0,
+        "gaps": []
+      }
+    }
+  ]
+}

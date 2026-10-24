@@ -32,6 +32,7 @@ async def upload_transactions(request: Request, file: UploadFile = File(...)) ->
     # Заменяем данные только после успешной проверки всей выписки.
     request.app.state.transactions = tuple(result.transactions)
     request.app.state.categorizations = {}
+    request.app.state.balance_info = result.balance_info
     return result
 
 

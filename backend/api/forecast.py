@@ -17,7 +17,7 @@ async def get_forecast(
 ) -> ForecastResult:
     try:
         return forecast_cash_flow(request.app.state.transactions, as_of=as_of, opening_balance=opening_balance,
-                                  categorizations=request.app.state.categorizations)
+                                  categorizations=request.app.state.categorizations, balance_info=request.app.state.balance_info)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from None
 

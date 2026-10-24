@@ -1,0 +1,48 @@
+{
+  "status": "passed",
+  "browser_channel": "msedge",
+  "scenarios": [
+    "initial-empty-state",
+    "C071.csv: upload, categories, recurrence, forecast, unavailable/known balance, filters",
+    "C015.csv: upload, categories, recurrence, forecast, unavailable/known balance, filters",
+    "invalid-upload-preserves-results",
+    "module-error-isolation-and-retry",
+    "malformed-module-response",
+    "incomplete-forecast-state",
+    "untrusted-statement-text-escaped",
+    "multiple-gap-display-ui-fixture-only",
+    "xlsx-full-C071-data-upload-and-analysis",
+    "mobile-390px-and-no-javascript-errors"
+  ],
+  "datasets": [
+    {
+      "file": "C071.csv",
+      "sha256": "5cc886333684098ee4717729819e20b1128f22f8e8b48661fa4eec78e015c0ef",
+      "displayed_transactions": 614,
+      "missing_inn_errors": 5,
+      "daily_rows": 30,
+      "automatic_gap_state": "no_gaps",
+      "current_gap_state": "not_available",
+      "historical_gap_state": "no_gaps",
+      "automatic_opening": "3 756 563,37 ₽",
+      "automatic_closing": "3 072 379,65 ₽",
+      "repeat_import": "unchanged"
+    },
+    {
+      "file": "C015.csv",
+      "sha256": "d3334ca3beeb7ca6ac5986b80c6ccfafd63d1cbd8b1d49a390ed093a0347125e",
+      "displayed_transactions": 2455,
+      "missing_inn_errors": 96,
+      "daily_rows": 30,
+      "automatic_gap_state": "no_gaps",
+      "current_gap_state": "not_available",
+      "historical_gap_state": "no_gaps",
+      "automatic_opening": "518 152,13 ₽",
+      "automatic_closing": "506 614,54 ₽",
+      "repeat_import": "unchanged"
+    }
+  ],
+  "javascript_errors": [],
+  "desktop_viewport": "1440x1000",
+  "mobile_viewport": "390x844"
+}

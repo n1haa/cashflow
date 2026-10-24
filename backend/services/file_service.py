@@ -21,6 +21,8 @@ COLUMN_ALIASES = {
     "balance": ("остаток", "остаток на счете", "остаток на конец дня", "остаток на счете на конец дня", "balance_eod"),
     "income": ("поступление", "поступления", "кредит"),
     "expense": ("списание", "списания", "дебет"),
+    "statement_opening": ("начальный остаток", "остаток на начало выписки", "opening_balance", "initial_balance"),
+    "balance_after": ("баланс после операции", "остаток после операции", "balance_after_transaction", "balance_after"),
 }
 COLUMN_NAMES = {
     " ".join(alias.casefold().split()): canonical
@@ -54,7 +56,12 @@ def normalize_columns(frame: pd.DataFrame) -> pd.DataFrame:
         raise ValueError("В файле есть повторяющиеся или неоднозначные столбцы")
     frame = frame.copy()
     frame.columns = columns
-    required = ["date", "counterparty", "inn", "description", "balance"]
+    if "balance_after" in columns:
+        if "balance" in columns:
+            raise ValueError("Неоднозначные столбцы: остаток на конец дня и баланс после операции")
+        frame = frame.rename(columns={"balance_after": "balance"})
+        frame.attrs["balance_kind"] = "after_transaction"
+    required = ["date", "counterparty", "inn", "description"]
     split_amounts = {"income", "expense"}.issubset(columns)
     if "direction" in columns or not split_amounts:
         required.append("amount")

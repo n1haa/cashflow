@@ -11,6 +11,7 @@ def create_app() -> FastAPI:
     app = FastAPI(title="CashFlow AI", version="0.1.0")
     app.state.transactions = ()
     app.state.categorizations = {}
+    app.state.balance_info = None
     app.include_router(router)
     app.include_router(forecast_router)
     frontend = Path(__file__).resolve().parents[1] / "frontend"

@@ -10,11 +10,12 @@ from zoneinfo import ZoneInfo
 
 from backend.schemas import (
     Categorization, ForecastCategory, ForecastDay, ForecastEvent, ForecastResult,
-    ForecastSummary, RecurringOperation, Transaction,
+    ForecastSummary, RecurringOperation, StatementBalance, Transaction,
 )
 from backend.services.category_rules import CATEGORY_LABELS
 from backend.services.category_service import categorize_transaction
 from backend.services.recurring_service import _calendar_date, detect_recurring_transactions
+from backend.services.balance_service import resolve_statement_balance
 
 HORIZON_DAYS = 30
 LOOKBACK_DAYS = 90
@@ -60,18 +61,18 @@ def _events(group: RecurringOperation, items: Sequence[Transaction], start: date
     return result
 
 
-def _opening_balance(history: Sequence[Transaction], as_of: date, provided: Decimal | None) -> tuple[Decimal | None, str]:
+def _opening_balance(history: Sequence[Transaction], as_of: date, provided: Decimal | None, info: StatementBalance) -> tuple[Decimal | None, str]:
     if provided is not None:
         return provided, "provided"
-    balances = {item.balance for item in history if item.date == as_of}
-    if len(balances) == 1:
-        return next(iter(balances)), "history_eod"
+    if info.status in {"detected", "provided"} and info.statement_end == as_of and info.statement_closing_balance is not None:
+        return info.statement_closing_balance, "history_eod"
     return None, "unavailable"
 
 
 def _build_forecast(
     transactions: Sequence[Transaction], as_of: date, opening_balance: Decimal | None,
     categorizations: Mapping[int, Categorization] | None,
+    balance_info: StatementBalance | None,
 ) -> ForecastResult:
     try:
         start, end = as_of + timedelta(days=1), as_of + timedelta(days=HORIZON_DAYS)
@@ -97,7 +98,13 @@ def _build_forecast(
         warnings.append("Операции позже даты расчета исключены из анализа")
     if history_end and history_end < as_of:
         warnings.append("История заканчивается раньше даты расчета; средние используют окно до последней известной операции, пропущенные дни не считаются нулевыми")
-    balance, balance_source = _opening_balance(history, as_of, opening_balance)
+    info = resolve_statement_balance(history, kind=balance_info.kind if balance_info else "end_of_day",
+                                     explicit_opening=balance_info.explicit_opening_balance if balance_info else None)
+    if balance_info and balance_info.explicit_opening_invalid:
+        info = balance_info.model_copy(update={"statement_opening_balance": None, "statement_closing_balance": None})
+    balance, balance_source = _opening_balance(history, as_of, opening_balance, info)
+    if info.status in {"invalid", "unknown"}:
+        warnings.append(info.message)
     if balance is None:
         warnings.append("Исходный остаток неизвестен или неоднозначен; абсолютный прогноз остатка не рассчитывается")
     by_id = {item.id: item for item in history}
@@ -192,19 +199,29 @@ def _build_forecast(
                                 net_cash_flow=total_income - total_expense, opening_balance=balance,
                                 closing_balance=balance + cumulative if balance is not None else None),
         warnings=warnings,
+        balance_info=info,
     )
 
 
 def forecast_cash_flow(
     transactions: Sequence[Transaction], *, as_of: date | None = None,
     opening_balance: Decimal | None = None, categorizations: Mapping[int, Categorization] | None = None,
+    balance_info: StatementBalance | None = None,
 ) -> ForecastResult:
-    """Прогноз от конца as_of; дата по умолчанию — текущая в Europe/Moscow."""
+    """Без as_of прогноз от последнего дня выписки, не позже текущей даты проекта."""
     if opening_balance is not None and not opening_balance.is_finite():
         raise ValueError("Исходный остаток должен быть конечным числом")
     with localcontext() as context:
-        amounts = [value for item in transactions for value in (item.amount, item.balance)]
+        amounts = [value for item in transactions for value in (item.amount, item.balance) if value is not None]
         if opening_balance is not None:
             amounts.append(opening_balance)
         context.prec = max(50, max((len(value.as_tuple().digits) + abs(value.as_tuple().exponent) for value in amounts), default=0) + len(str(len(transactions))) + 20)
-        return _build_forecast(transactions, as_of or project_date(), opening_balance, categorizations)
+        if as_of is None:
+            today = project_date()
+            available_dates = [item.date for item in transactions if item.date <= today]
+            calculation_date = max(available_dates) if available_dates else today
+            date_source = "statement_end" if available_dates else "current_date"
+        else:
+            calculation_date, date_source = as_of, "explicit"
+        result = _build_forecast(transactions, calculation_date, opening_balance, categorizations, balance_info)
+        return result.model_copy(update={"as_of_source": date_source})

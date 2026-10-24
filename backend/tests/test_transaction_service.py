@@ -60,7 +60,7 @@ def test_directions(frame, value, expected):
     ("direction", "", "направление"), ("counterparty", " ", "Контрагент"),
     ("description", None, "Назначение"), ("inn", "123", "ИНН"),
     ("inn", "000000000a", "ИНН"), ("inn", "0000000001.0", "ИНН"),
-    ("balance", "bad", "остаток"), ("balance", float("nan"), "остаток"),
+    ("balance", "bad", "остаток"), ("balance", float("inf"), "остаток"),
 ])
 def test_invalid_rows(frame, field, value, error):
     frame.loc[0, field] = value
@@ -68,7 +68,7 @@ def test_invalid_rows(frame, field, value, error):
         normalize_transactions(frame)
 
 
-@pytest.mark.parametrize("field", ["date", "amount", "direction", "counterparty", "inn", "description", "balance"])
+@pytest.mark.parametrize("field", ["date", "amount", "direction", "counterparty", "inn", "description"])
 def test_missing_column(frame, field):
     with pytest.raises(ValueError, match="обязательный столбец"):
         normalize_transactions(frame.drop(columns=[field]))

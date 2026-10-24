@@ -69,8 +69,23 @@ def main():
                 page.locator('#transactions-content button[data-step="-1"]').click()
                 expect(page.locator('#recurring-content')).to_contain_text('Подтверждено:')
                 expect(page.locator('#forecast-content svg')).to_have_count(1)
-                expect(page.locator('#forecast-content')).to_contain_text('Накопленное изменение')
+                expect(page.locator('#forecast-content')).to_contain_text('Прогнозируемый остаток')
+                expect(page.locator('#gaps-content')).to_contain_text('Кассовые разрывы не обнаружены')
+                expect(page.locator('#import-result')).to_contain_text('Остаток определен автоматически')
+                expect(page.locator('#metric-opening')).not_to_have_text('Нет данных')
+                original_opening = page.locator('#metric-opening').inner_text()
+                original_closing = page.locator('#metric-closing').inner_text()
+                # Повторный импорт не добавляет ни баланс, ни операции второй раз.
+                page.locator('#upload-submit').click()
+                expect(page.locator('#upload-message')).to_contain_text('Обработка завершена', timeout=60000)
+                expect(page.locator('#metric-opening')).to_have_text(original_opening)
+                expect(page.locator('#metric-closing')).to_have_text(original_closing)
+                expect(page.locator('#metric-transactions')).to_have_text(str(total))
+                page.locator('#as-of').fill('2026-10-24')
+                page.locator('#refresh-all').click()
+                expect(page.locator('#settings-message')).to_contain_text('Запросы завершены', timeout=60000)
                 expect(page.locator('#gaps-content')).to_contain_text('Анализ недоступен')
+                expect(page.locator('#metric-opening')).to_have_text('Нет данных')
                 page.locator('#transaction-direction').select_option('expense')
                 expect(page.locator('#transactions-content')).not_to_contain_text('Поступление')
                 page.locator('#transaction-direction').select_option('all')
@@ -87,7 +102,9 @@ def main():
                 datasets.append({'file': filename, 'sha256': checksum,
                                  'displayed_transactions': int(page.locator('#metric-transactions').inner_text()),
                                  'missing_inn_errors': missing, 'daily_rows': 30,
-                                 'current_gap_state': 'not_available', 'historical_gap_state': 'no_gaps'})
+                                 'automatic_gap_state': 'no_gaps', 'current_gap_state': 'not_available',
+                                 'historical_gap_state': 'no_gaps', 'automatic_opening': original_opening,
+                                 'automatic_closing': original_closing, 'repeat_import': 'unchanged'})
                 assert hashlib.sha256(path.read_bytes()).hexdigest() == checksum
                 results.append(f'{filename}: upload, categories, recurrence, forecast, unavailable/known balance, filters')
                 if filename == 'C071.csv' and args.screenshot:

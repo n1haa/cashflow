@@ -18,7 +18,7 @@ class Transaction(BaseModel):
     # Пустой ИНН сохраняется как отсутствие данных и сопровождается RowError.
     inn: str | None = Field(pattern=r"^(?:[0-9]{10}|[0-9]{12})$")
     description: str = Field(min_length=1)
-    balance: Decimal = Field(allow_inf_nan=False)
+    balance: Decimal | None = Field(allow_inf_nan=False)
 
 
 class DuplicateGroup(BaseModel):
@@ -37,6 +37,20 @@ class RowError(SourceRow):
     message: str = "Не заполнен ИНН; операция сохранена без подстановки значения"
 
 
+class StatementBalance(BaseModel):
+    status: Literal["detected", "provided", "unknown", "invalid"]
+    kind: Literal["end_of_day", "after_transaction"] = "end_of_day"
+    source: str
+    message: str
+    statement_start: date | None = None
+    statement_end: date | None = None
+    statement_opening_balance: Decimal | None = None
+    statement_closing_balance: Decimal | None = None
+    explicit_opening_balance: Decimal | None = None
+    issues: list[str] = Field(default_factory=list)
+    explicit_opening_invalid: bool = False
+
+
 class ImportResult(BaseModel):
     status: Literal["success", "partial_success"] = "success"
     message: str = "Выписка успешно обработана"
@@ -49,6 +63,7 @@ class ImportResult(BaseModel):
     transactions: list[Transaction]
     source_rows: list[SourceRow] = Field(default_factory=list)
     errors: list[RowError] = Field(default_factory=list)
+    balance_info: StatementBalance | None = None
 
 
 class Categorization(BaseModel):
@@ -177,6 +192,8 @@ class ForecastResult(BaseModel):
     categories: list[ForecastCategory]
     summary: ForecastSummary
     warnings: list[str]
+    balance_info: StatementBalance | None = None
+    as_of_source: Literal["explicit", "statement_end", "current_date"] = "explicit"
 
 
 class CashGap(BaseModel):
