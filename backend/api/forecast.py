@@ -1,9 +1,10 @@
 from datetime import date
 from decimal import Decimal
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from backend.schemas import ForecastResult
+from backend.schemas import CashGapAnalysis, ForecastResult
+from backend.services.cash_gap_service import analyze_cash_gaps
 from backend.services.forecast_service import forecast_cash_flow
 
 router = APIRouter(prefix="/api/forecast", tags=["forecast"])
@@ -19,3 +20,8 @@ async def get_forecast(
                                   categorizations=request.app.state.categorizations)
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from None
+
+
+@router.get("/cash-gaps", response_model=CashGapAnalysis)
+async def get_cash_gaps(forecast: ForecastResult = Depends(get_forecast)) -> CashGapAnalysis:
+    return analyze_cash_gaps(forecast)

@@ -177,3 +177,44 @@ class ForecastResult(BaseModel):
     categories: list[ForecastCategory]
     summary: ForecastSummary
     warnings: list[str]
+
+
+class CashGap(BaseModel):
+    gap_id: int
+    status: Literal["ongoing", "recovered"]
+    start_date: date
+    last_negative_date: date
+    recovery_date: date | None
+    duration_days: int
+    start_balance: Decimal
+    minimum_balance: Decimal
+    minimum_balance_date: date
+    maximum_deficit: Decimal
+    starts_before_forecast: bool
+    start_day: ForecastDay
+    recovery_day: ForecastDay | None
+    preceding_days: list[ForecastDay]
+    largest_expense_day: ForecastDay | None
+    related_events: list[ForecastEvent]
+    regular_expense_categories: list[str]
+
+
+class CashGapAnalysis(BaseModel):
+    analysis_version: str = "cash-gaps-v1"
+    forecast_method: str | None
+    status: Literal["detected", "no_gaps", "not_available"]
+    has_cash_gap: bool | None
+    start_date: date | None
+    end_date: date | None
+    analyzed_days: int
+    opening_balance: Decimal | None
+    opening_balance_negative: bool | None
+    gap_count: int | None
+    ongoing_count: int | None
+    first_gap_date: date | None
+    minimum_balance: Decimal | None
+    maximum_deficit: Decimal | None
+    total_deficit_days: int | None
+    gaps: list[CashGap]
+    daily: list[ForecastDay]
+    warnings: list[str]
