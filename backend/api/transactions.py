@@ -3,10 +3,11 @@
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from starlette.concurrency import run_in_threadpool
 
-from backend.schemas import CategorizationRequest, CategorizationResult, ImportResult, Transaction
+from backend.schemas import CategorizationRequest, CategorizationResult, ImportResult, RecurringResult, Transaction
 from backend.services.category_service import categorize_transactions
 from backend.services.file_service import MAX_FILE_SIZE, load_transactions_file, validate_file_metadata
 from backend.services.transaction_service import normalize_transactions
+from backend.services.recurring_service import detect_recurring_transactions
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
@@ -56,3 +57,9 @@ async def categorize_stored_transactions(
     result = categorize_transactions(transactions)
     request.app.state.categorizations.update({item.transaction_id: item for item in result.categorizations})
     return result
+
+
+@router.get("/recurring", response_model=RecurringResult)
+async def get_recurring_operations(request: Request) -> RecurringResult:
+    # Снимок текущей выписки; новые платежи или категории не создаются.
+    return detect_recurring_transactions(request.app.state.transactions, request.app.state.categorizations)

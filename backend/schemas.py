@@ -77,3 +77,41 @@ class CategorizationResult(BaseModel):
     automatic_percentage: float
     distribution: dict[str, int]
     categorizations: list[Categorization]
+
+
+class RecurringOperation(BaseModel):
+    group_id: str
+    description: str
+    counterparty: str
+    category: str
+    category_name: str
+    direction: Literal["income", "expense"]
+    frequency: Literal["weekly", "biweekly", "monthly", "quarterly", "yearly", "unknown"]
+    status: Literal["confirmed", "potential", "uncertain"]
+    transaction_ids: list[int]
+    repetitions: int
+    distinct_dates: int
+    first_date: date
+    last_date: date
+    next_expected_date: date | None
+    average_amount: Decimal
+    minimum_amount: Decimal
+    maximum_amount: Decimal
+    average_interval_days: Decimal
+    date_exceptions: int
+    interval_exceptions: int
+    amount_variable: bool
+    usable_for_calculations: bool
+    reason: str
+
+
+class RecurringResult(BaseModel):
+    algorithm_version: str = "recurrence-v1"
+    total_transactions: int
+    total_groups: int
+    confirmed_groups: int
+    potential_groups: int
+    uncertain_groups: int
+    frequency_distribution: dict[str, int]
+    ungrouped_transaction_ids: list[int]
+    groups: list[RecurringOperation]
