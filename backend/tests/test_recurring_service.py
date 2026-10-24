@@ -37,6 +37,7 @@ def test_periods_and_calendar(dates, frequency, next_date):
     assert str(group.next_expected_date) == next_date
     assert group.status == "confirmed"
     assert group.usable_for_calculations
+    assert not group.date_variable
     assert group.repetitions == group.distinct_dates == 3
 
 
@@ -78,11 +79,55 @@ def test_rare_delays_do_not_hide_whole_series():
     assert group.frequency == "monthly"
     assert group.date_exceptions == 1
     assert group.interval_exceptions == 0
+    assert not group.date_variable
 
 
-def test_too_many_delays_are_not_confirmed():
+def test_monthly_payments_with_variable_days_are_confirmed():
     dates = [date(2025, month, 1 if month % 2 else 15) for month in range(1, 13)]
-    assert detect_recurring_transactions(make_transactions(dates)).groups[0].status == "uncertain"
+    group = detect_recurring_transactions(make_transactions(dates)).groups[0]
+    assert group.status == "confirmed"
+    assert group.frequency == "monthly"
+    assert group.date_variable
+    assert group.next_expected_date == date(2026, 1, 1)
+    assert not group.usable_for_calculations
+
+
+@pytest.mark.parametrize("dates,status,next_date", [
+    (["2025-12-02", "2026-01-28"], "potential", "2026-02-02"),
+    (["2025-12-31", "2026-01-02", "2026-02-28"], "confirmed", "2026-03-28"),
+    (["2024-01-01", "2024-02-29", "2024-03-31"], "confirmed", "2024-04-29"),
+    (["9999-10-01", "9999-11-28", "9999-12-02"], "confirmed", None),
+])
+def test_variable_monthly_days_calendar_boundaries(dates, status, next_date):
+    items = make_transactions(dates)
+    result = detect_recurring_transactions(items)
+    group = result.groups[0]
+    assert group.status == status
+    assert group.frequency == "monthly"
+    assert group.date_variable
+    assert group.next_expected_date == (date.fromisoformat(next_date) if next_date else None)
+    assert not group.usable_for_calculations
+    assert detect_recurring_transactions(list(reversed(items))) == result
+
+
+@pytest.mark.parametrize("dates", [
+    ["2025-12-02", "2026-01-28", "2026-03-03"],  # Пропущен месяц.
+    ["2026-01-01", "2026-02-15", "2026-02-20", "2026-03-01"],  # Два платежа в месяце.
+])
+def test_variable_days_do_not_hide_missing_or_duplicate_months(dates):
+    group = detect_recurring_transactions(make_transactions(dates)).groups[0]
+    assert group.status == "uncertain"
+    assert group.frequency == "unknown"
+
+
+def test_variable_monthly_days_with_duplicate_date_are_only_potential():
+    items = make_transactions(["2026-01-01", "2026-02-28", "2026-02-28", "2026-03-02"])
+    group = detect_recurring_transactions(items).groups[0]
+    assert group.frequency == "monthly"
+    assert group.status == "potential"
+    assert group.repetitions == 4
+    assert group.distinct_dates == 3
+    assert not group.usable_for_calculations
 
 
 def test_same_day_payments_preserved_as_potential():

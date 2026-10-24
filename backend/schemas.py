@@ -116,12 +116,13 @@ class RecurringOperation(BaseModel):
     date_exceptions: int
     interval_exceptions: int
     amount_variable: bool
+    date_variable: bool = False
     usable_for_calculations: bool
     reason: str
 
 
 class RecurringResult(BaseModel):
-    algorithm_version: str = "recurrence-v1"
+    algorithm_version: str = "recurrence-v2"
     total_transactions: int
     total_groups: int
     confirmed_groups: int

@@ -49,9 +49,10 @@ def _within_exception_limit(errors: int, observations: int) -> bool:
     return errors * 100 <= observations * 15
 
 
-def _period(dates: list[date]) -> tuple[str, date | None, int, int]:
+def _period(dates: list[date]) -> tuple[str, date | None, int, int, bool]:
+    """Период, следующая дата, исключения дат/интервалов, нестабильный день месяца."""
     if len(dates) < 2:
-        return "unknown", None, 0, 0
+        return "unknown", None, 0, 0, False
     intervals = [(right - left).days for left, right in zip(dates, dates[1:])]
     for name, days, tolerance in DAY_PERIODS:
         if any(interval > days * 3 + tolerance for interval in intervals):
@@ -64,9 +65,9 @@ def _period(dates: list[date]) -> tuple[str, date | None, int, int]:
         date_errors = sum(min((phase - anchor_phase) % days, (anchor_phase - phase) % days) > tolerance for phase in phases)
         if _within_exception_limit(interval_errors, len(intervals)) and _within_exception_limit(date_errors, len(dates)):
             try:
-                return name, dates[-1] + timedelta(days=days), date_errors, interval_errors
+                return name, dates[-1] + timedelta(days=days), date_errors, interval_errors, False
             except OverflowError:
-                return name, None, date_errors, interval_errors
+                return name, None, date_errors, interval_errors, False
     anchor_day = median_low(sorted(item.day for item in dates))
     end_of_month = all(item.day == monthrange(item.year, item.month)[1] for item in dates)
     for name, months, tolerance in MONTH_PERIODS:
@@ -89,10 +90,20 @@ def _period(dates: list[date]) -> tuple[str, date | None, int, int]:
         date_errors = sum(abs((actual - target).days) > tolerance for actual, target in zip(dates, expected))
         if _within_exception_limit(interval_errors, len(intervals)) and _within_exception_limit(date_errors, len(dates)):
             try:
-                return name, _calendar_date(expected[-1], months, anchor_day, end_of_month), date_errors, interval_errors
+                return name, _calendar_date(expected[-1], months, anchor_day, end_of_month), date_errors, interval_errors, False
             except ValueError:
-                return name, None, date_errors, interval_errors
-    return "unknown", None, 0, 0
+                return name, None, date_errors, interval_errors, False
+    # Месячная регулярность не требует фиксированного дня. Проверяем реальные
+    # месяцы без привязки к ближайшему типичному дню: строго одна дата в каждом
+    # последовательном месяце, без пропусков и дополнительных дат внутри месяца.
+    month_numbers = [item.year * 12 + item.month for item in dates]
+    if all(right - left == 1 for left, right in zip(month_numbers, month_numbers[1:])):
+        try:
+            next_date = _calendar_date(dates[-1], 1, anchor_day, end_of_month)
+        except ValueError:
+            next_date = None
+        return "monthly", next_date, 0, 0, True
+    return "unknown", None, 0, 0, False
 
 
 def _make_group(key: tuple, transactions: list[Transaction]) -> RecurringOperation:
@@ -100,7 +111,7 @@ def _make_group(key: tuple, transactions: list[Transaction]) -> RecurringOperati
     dates = [item.date for item in items]
     amounts = [item.amount for item in items]
     unique_dates = sorted(set(dates))
-    frequency, next_date, date_errors, interval_errors = _period(unique_dates)
+    frequency, next_date, date_errors, interval_errors, date_variable = _period(unique_dates)
     same_day = len(unique_dates) != len(dates)
     status = "uncertain" if frequency == "unknown" else "confirmed" if len(unique_dates) >= 3 and not same_day else "potential"
     # Суммы не ограничивают группировку: сохраняем разброс и осторожность использования.
@@ -116,8 +127,17 @@ def _make_group(key: tuple, transactions: list[Transaction]) -> RecurringOperati
         "confirmed": "Не менее трех операций; вся последовательность соответствует периоду в допустимых пределах",
     }
     reason = reasons[status]
+    if date_variable:
+        reason = (
+            "По одной дате платежа в каждом последовательном календарном месяце; "
+            "день месяца нестабилен, следующая дата ориентировочная"
+        )
+        if status == "potential":
+            reason += "; только две операции, периодичность предварительная"
     if status == "potential" and same_day:
         reason = "Есть ритм по различным датам, но несколько операций одной даты; требуется проверка объединения"
+        if date_variable:
+            reason += "; день месяца нестабилен, следующая дата ориентировочная"
     if date_errors or interval_errors:
         reason += f"; исключений по датам: {date_errors}, по интервалам: {interval_errors} (не более 15% каждого вида)"
     if variable:
@@ -134,7 +154,8 @@ def _make_group(key: tuple, transactions: list[Transaction]) -> RecurringOperati
         average_amount=average, minimum_amount=minimum, maximum_amount=maximum,
         average_interval_days=interval, amount_variable=variable,
         date_exceptions=date_errors, interval_exceptions=interval_errors,
-        usable_for_calculations=status == "confirmed" and not variable and next_date is not None,
+        date_variable=date_variable,
+        usable_for_calculations=status == "confirmed" and not variable and not date_variable and next_date is not None,
         reason=reason,
     )
 

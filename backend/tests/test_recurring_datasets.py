@@ -14,8 +14,8 @@ from backend.services.transaction_service import normalize_transactions
 
 
 @pytest.mark.parametrize("filename,total,counts,frequencies", [
-    ("C071.csv", 614, (50, 6, 4, 40), {"monthly": 7, "quarterly": 2, "unknown": 40, "weekly": 1}),
-    ("C015.csv", 2455, (25, 8, 4, 13), {"monthly": 7, "unknown": 13, "weekly": 5}),
+    ("C071.csv", 614, (50, 9, 4, 37), {"monthly": 10, "quarterly": 2, "unknown": 37, "weekly": 1}),
+    ("C015.csv", 2455, (25, 12, 4, 9), {"monthly": 11, "unknown": 9, "weekly": 5}),
 ], ids=["C071-recurrence", "C015-recurrence"])
 def test_full_dataset_recurrence(request, client, filename, total, counts, frequencies):
     directory = request.config.getoption("--dataset-dir")
@@ -59,6 +59,11 @@ def test_full_dataset_recurrence(request, client, filename, total, counts, frequ
             assert group.distinct_dates == group.repetitions >= 3
         if group.status == "potential":
             assert not group.usable_for_calculations
+        if group.date_variable:
+            assert group.frequency == "monthly"
+            assert not group.usable_for_calculations
+            months = sorted(item.date.year * 12 + item.date.month for item in items)
+            assert all(right - left == 1 for left, right in zip(months, months[1:]))
 
     rent = next(group for group in result.groups if group.category == "rent")
     assert rent.frequency == "monthly"

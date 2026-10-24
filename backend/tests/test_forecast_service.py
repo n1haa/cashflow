@@ -84,6 +84,16 @@ def test_calendar_schedule(dates, as_of, expected):
     assert_consistent(result)
 
 
+def test_variable_monthly_days_stay_in_residual_flow_without_fixed_date_events():
+    items = transactions(["2025-11-01", "2025-12-28", "2026-01-02"])
+    result = forecast_cash_flow(items, as_of=date(2026, 1, 2))
+    assert result.regular_group_ids == []
+    assert result.scheduled_events == []
+    assert result.residual_history_transaction_ids == [1, 2, 3]
+    assert result.summary.total_expense > 0
+    assert_consistent(result)
+
+
 @pytest.mark.parametrize("as_of,boundary", [(date(2026, 1, 22), "start"), (date(2026, 1, 21), "end")])
 def test_schedule_includes_first_and_last_day(as_of, boundary):
     result = forecast_cash_flow(transactions(["2026-01-02", "2026-01-09", "2026-01-16"]), as_of=as_of)

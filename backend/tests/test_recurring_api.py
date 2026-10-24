@@ -1,7 +1,34 @@
 from io import BytesIO
+from pathlib import Path
 
 import pandas as pd
 import pytest
+
+
+def test_c051_cleaning_is_confirmed_despite_variable_days(client):
+    # Все 24 исходные строки уборки из C051; тест не зависит от Downloads.
+    content = (Path(__file__).parent / "fixtures" / "C051_cleaning.csv").read_bytes()
+    upload = client.post("/api/transactions/upload", files={"file": ("C051_cleaning.csv", content)})
+    assert upload.status_code == 200
+    before = client.get("/api/transactions").json()
+    result = client.get("/api/transactions/recurring").json()
+    assert result["total_transactions"] == 24
+    assert result["total_groups"] == result["confirmed_groups"] == 1
+    group = result["groups"][0]
+    assert group["counterparty"] == "ООО «Клининг-839»"
+    assert group["description"] == "оплата за услуги уборки"
+    assert group["frequency"] == "monthly"
+    assert group["status"] == "confirmed"
+    assert group["repetitions"] == group["distinct_dates"] == 24
+    assert group["transaction_ids"] == list(range(1, 25))
+    assert group["date_variable"]
+    assert group["next_expected_date"] == "2026-10-15"
+    assert group["average_amount"] == "68672.67"
+    assert group["amount_variable"]
+    assert not group["usable_for_calculations"]
+    assert client.post("/api/transactions/categorize").status_code == 200
+    assert client.get("/api/transactions/recurring").json() == result
+    assert client.get("/api/transactions").json() == before
 
 
 def test_empty_store(client):
