@@ -2,6 +2,85 @@ export function escapeHTML(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
 }
 
+function inlineMarkdown(value) {
+  const protectedParts = [];
+  const hold = html => `\u0000${protectedParts.push(html) - 1}\u0000`;
+  let text = String(value ?? '').replace(/`([^`]+)`/g, (_, code) => hold(`<code>${escapeHTML(code)}</code>`));
+  text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, label, url) => {
+    const safeUrl = escapeHTML(url);
+    return hold(`<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${escapeHTML(label)}</a>`);
+  });
+  text = escapeHTML(text)
+    .replace(/\*\*(.+?)\*\*|__(.+?)__/g, '<strong>$1$2</strong>')
+    .replace(/~~(.+?)~~/g, '<del>$1</del>')
+    .replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+    .replace(/(^|[^_])_([^_\n]+)_(?!_)/g, '$1<em>$2</em>');
+  return text.replace(/\u0000(\d+)\u0000/g, (_, index) => protectedParts[Number(index)] ?? '');
+}
+
+function tableCells(line) {
+  return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map(cell => cell.trim());
+}
+
+export function renderMarkdown(value) {
+  const lines = String(value ?? '').replace(/\r\n?/g, '\n').split('\n');
+  const output = [];
+  let paragraph = [], listType = '', codeLines = null, codeLanguage = '';
+  const flushParagraph = () => {
+    if (paragraph.length) output.push(`<p>${inlineMarkdown(paragraph.join(' '))}</p>`);
+    paragraph = [];
+  };
+  const closeList = () => {
+    if (listType) output.push(`</${listType}>`);
+    listType = '';
+  };
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const fence = line.match(/^\s*```([\w+-]*)\s*$/);
+    if (fence) {
+      flushParagraph(); closeList();
+      if (codeLines !== null) {
+        const languageClass = codeLanguage ? ` class="language-${escapeHTML(codeLanguage)}"` : '';
+        output.push(`<pre><code${languageClass}>${escapeHTML(codeLines.join('\n'))}</code></pre>`);
+        codeLines = null; codeLanguage = '';
+      } else { codeLines = []; codeLanguage = fence[1]; }
+      continue;
+    }
+    if (codeLines) { codeLines.push(line); continue; }
+    if (!line.trim()) { flushParagraph(); closeList(); continue; }
+    const tableDelimiter = lines[i + 1] && /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(lines[i + 1]);
+    if (line.includes('|') && tableDelimiter) {
+      flushParagraph(); closeList();
+      const headers = tableCells(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && lines[i].trim() && lines[i].includes('|')) rows.push(tableCells(lines[i++]));
+      i--;
+      output.push(`<div class="md-table-wrap"><table><thead><tr>${headers.map(cell => `<th>${inlineMarkdown(cell)}</th>`).join('')}</tr></thead><tbody>${rows.map(row => `<tr>${headers.map((_, index) => `<td>${inlineMarkdown(row[index] ?? '')}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+      continue;
+    }
+    const heading = line.match(/^(#{1,6})\s+(.+)$/);
+    if (heading) { flushParagraph(); closeList(); const level = heading[1].length; output.push(`<h${level}>${inlineMarkdown(heading[2])}</h${level}>`); continue; }
+    if (/^\s*(?:-{3,}|_{3,}|\*{3,})\s*$/.test(line)) { flushParagraph(); closeList(); output.push('<hr>'); continue; }
+    const quote = line.match(/^\s*>\s?(.*)$/);
+    if (quote) {
+      flushParagraph(); closeList(); const quoted = [quote[1]];
+      while (i + 1 < lines.length && /^\s*>\s?/.test(lines[i + 1])) quoted.push(lines[++i].replace(/^\s*>\s?/, ''));
+      output.push(`<blockquote><p>${inlineMarkdown(quoted.join(' '))}</p></blockquote>`); continue;
+    }
+    const item = line.match(/^\s*(?:([-+*•])\s+|(\d+)[.)]\s+)(.+)$/);
+    if (item) {
+      flushParagraph(); const nextType = item[2] ? 'ol' : 'ul';
+      if (listType !== nextType) { closeList(); listType = nextType; output.push(`<${listType}>`); }
+      output.push(`<li>${inlineMarkdown(item[3])}</li>`); continue;
+    }
+    closeList(); paragraph.push(line.trim());
+  }
+  flushParagraph(); closeList();
+  if (codeLines) output.push(`<pre><code>${escapeHTML(codeLines.join('\n'))}</code></pre>`);
+  return output.join('');
+}
+
 export function money(value) {
   if (value === null || value === undefined || value === '') return 'Нет данных';
   const match = String(value).match(/^([+-]?)(\d+)(?:\.(\d+))?$/);

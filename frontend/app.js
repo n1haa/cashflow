@@ -1,5 +1,5 @@
 import { api, forecastQuery } from './api.js';
-import { escapeHTML as esc, money, dateLabel, frequencyNames, statusNames, gapState, pageItems, chartMarkup } from './presentation.js';
+import { escapeHTML as esc, renderMarkdown, money, dateLabel, frequencyNames, statusNames, gapState, pageItems, chartMarkup } from './presentation.js';
 
 const $ = id => document.getElementById(id);
 const blank = () => ({ status: 'idle', data: null, error: '' });
@@ -284,7 +284,7 @@ $('chat-form').addEventListener('submit', async event => {
   $('chat-answer').insertAdjacentHTML('beforeend', `<div class="ai-message ai-message-user">${esc(question)}</div>`);
   try {
     const result = await api.chat(question);
-    $('chat-answer').insertAdjacentHTML('beforeend', `<div class="notice ai-message">${esc(result.answer).replaceAll('\n', '<br>')}<p class="muted">${result.mode === 'llm' ? 'Ответ сформирован языковой моделью по контексту системы.' : 'Ответ сформирован по данным системы.'}</p>${result.sources.length ? `<details><summary>Источники · ${result.sources.length}</summary><ul>${result.sources.map(source => `<li>${esc(source)}</li>`).join('')}</ul></details>` : ''}</div>`);
+    $('chat-answer').insertAdjacentHTML('beforeend', `<article class="notice ai-message"><div class="markdown-body">${renderMarkdown(result.answer)}</div><p class="muted ai-answer-mode">${result.mode === 'llm' ? 'Ответ сформирован языковой моделью по контексту системы.' : 'Ответ сформирован по данным системы.'}</p>${result.sources.length ? `<details><summary>Источники · ${result.sources.length}</summary><ul>${result.sources.map(source => `<li>${esc(source)}</li>`).join('')}</ul></details>` : ''}</article>`);
     $('chat-message').value = '';
     $('ai-messages').scrollTop = $('ai-messages').scrollHeight;
     $('chat-status').textContent = '';
