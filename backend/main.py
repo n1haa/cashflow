@@ -12,6 +12,7 @@ def create_app() -> FastAPI:
     app.state.transactions = ()
     app.state.categorizations = {}
     app.state.balance_info = None
+    app.state.recurring_rules = {}
     app.include_router(router)
     app.include_router(forecast_router)
     frontend = Path(__file__).resolve().parents[1] / "frontend"

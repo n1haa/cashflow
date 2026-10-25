@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from backend.schemas import Categorization, Transaction
+from backend.schemas import Categorization, RecurringRule, Transaction
 from backend.services.forecast_service import forecast_cash_flow
 
 
@@ -237,4 +237,40 @@ def test_biweekly_unknown_category_and_large_amounts():
     assert [event.date for event in result.scheduled_events] == [date(2026, 2, 12), date(2026, 2, 26)]
     assert result.categories[0].category == "unknown"
     assert result.summary.total_expense == Decimal("1999999999999999999.98")
+    assert_consistent(result)
+
+
+def test_user_recurring_rule_adds_forecast_events():
+    rule = RecurringRule(
+        id="manual-rule", description="Аренда офиса", counterparty="Демо",
+        category="rent", direction="expense", frequency="weekly",
+        amount=Decimal("250.00"), next_date=date(2026, 1, 20),
+    )
+    result = forecast_cash_flow([], as_of=date(2026, 1, 19), opening_balance=Decimal("1000"), recurring_rules=[rule])
+    assert [event.date for event in result.scheduled_events] == [
+        date(2026, 1, 20), date(2026, 1, 27), date(2026, 2, 3), date(2026, 2, 10), date(2026, 2, 17),
+    ]
+    assert result.summary.total_expense == Decimal("1250.00")
+    assert result.summary.closing_balance == Decimal("-250.00")
+    assert_consistent(result)
+
+
+@pytest.mark.parametrize("enabled,expected_expense", [(True, Decimal("500.00")), (False, Decimal("0"))])
+def test_user_rule_replaces_matched_group_without_double_counting(enabled, expected_expense):
+    items = transactions(["2025-11-01", "2025-12-01", "2026-01-01"])
+    from backend.services.recurring_service import detect_recurring_transactions
+
+    group = detect_recurring_transactions(items).groups[0]
+    rule = RecurringRule(
+        id="edited-rule", source_group_id=group.group_id,
+        description="Аренда офиса", counterparty="Демо", category="rent",
+        direction="expense", frequency="monthly", amount=Decimal("250.00"),
+        next_date=date(2026, 2, 1), enabled=enabled,
+    )
+    result = forecast_cash_flow(items, as_of=date(2026, 1, 31), recurring_rules=[rule])
+    assert result.summary.total_expense == expected_expense
+    assert all(event.amount == Decimal("250.00") for event in result.scheduled_events) if enabled else not result.scheduled_events
+    assert result.residual_history_transaction_ids == []
+    assert result.regular_history_transaction_ids == ([1, 2, 3] if enabled else [])
+    assert result.excluded_history_transaction_ids == ([] if enabled else [1, 2, 3])
     assert_consistent(result)

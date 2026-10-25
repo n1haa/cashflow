@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 
 from backend.schemas import (
     Categorization, ForecastCategory, ForecastDay, ForecastEvent, ForecastResult,
-    ForecastSummary, RecurringOperation, StatementBalance, Transaction,
+    ForecastSummary, RecurringOperation, RecurringRule, StatementBalance, Transaction,
 )
 from backend.services.category_rules import CATEGORY_LABELS
 from backend.services.category_service import categorize_transaction
@@ -61,6 +61,36 @@ def _events(group: RecurringOperation, items: Sequence[Transaction], start: date
     return result
 
 
+def _rule_events(rule: RecurringRule, start: date, end: date) -> list[ForecastEvent]:
+    anchor = rule.next_date
+    end_of_month = anchor.day == monthrange(anchor.year, anchor.month)[1]
+    if rule.frequency in DAY_STEPS:
+        step_days = DAY_STEPS[rule.frequency]
+        cycles = max(0, (start - anchor).days // step_days)
+        while anchor + timedelta(days=cycles * step_days) < start:
+            cycles += 1
+    else:
+        step_months = MONTH_STEPS[rule.frequency]
+        months = (start.year - anchor.year) * 12 + start.month - anchor.month
+        cycles = max(0, months // step_months)
+        while _schedule_date(anchor, rule.frequency, cycles, end_of_month) < start:
+            cycles += 1
+    events = []
+    while True:
+        try:
+            expected = _schedule_date(anchor, rule.frequency, cycles, end_of_month)
+        except (OverflowError, ValueError):
+            break
+        if expected > end:
+            break
+        events.append(ForecastEvent(
+            group_id=rule.id, date=expected, category=rule.category,
+            direction=rule.direction, amount=rule.amount,
+        ))
+        cycles += 1
+    return events
+
+
 def _opening_balance(history: Sequence[Transaction], as_of: date, provided: Decimal | None, info: StatementBalance) -> tuple[Decimal | None, str]:
     if provided is not None:
         return provided, "provided"
@@ -76,6 +106,7 @@ def _build_forecast(
     transactions: Sequence[Transaction], as_of: date, opening_balance: Decimal | None,
     categorizations: Mapping[int, Categorization] | None,
     balance_info: StatementBalance | None,
+    recurring_rules: Sequence[RecurringRule],
 ) -> ForecastResult:
     try:
         start, end = as_of + timedelta(days=1), as_of + timedelta(days=HORIZON_DAYS)
@@ -119,7 +150,21 @@ def _build_forecast(
     regular_groups = []
     excluded_groups = {}
     events = []
+    rules_by_group = {rule.source_group_id: rule for rule in recurring_rules if rule.source_group_id}
+    managed_ids = set()
+    applied_rule_ids = set()
     for group in recurring.groups:
+        rule = rules_by_group.get(group.group_id)
+        if rule is not None:
+            applied_rule_ids.add(rule.id)
+            managed_ids.update(group.transaction_ids)
+            if rule.enabled:
+                regular_groups.append(group.group_id)
+                regular_ids.update(group.transaction_ids)
+                events.extend(_rule_events(rule, start, end))
+            else:
+                excluded_groups[group.group_id] = "Отключено пользователем"
+            continue
         if group.status != "confirmed" or not group.usable_for_calculations:
             excluded_groups[group.group_id] = "Серия не confirmed либо не пригодна для расчетов по Sprint 3"
             continue
@@ -137,13 +182,16 @@ def _build_forecast(
         regular_groups.append(group.group_id)
         regular_ids.update(group.transaction_ids)
         events.extend(_events(group, [by_id[item] for item in group.transaction_ids], start, end))
+    for rule in recurring_rules:
+        if rule.enabled and rule.id not in applied_rule_ids:
+            events.extend(_rule_events(rule, start, end))
     events.sort(key=lambda item: (item.date, item.group_id))
     buckets = defaultdict(list)
     regular_history_ids = sorted(item.id for item in window if item.id in regular_ids)
     for item in window:
-        if item.id not in regular_ids:
+        if item.id not in regular_ids and item.id not in managed_ids:
             buckets[(categories[item.id].category, item.direction)].append(item)
-    residual_ids, excluded_history_ids = [], []
+    residual_ids, excluded_history_ids = [], sorted(item.id for item in window if item.id in managed_ids and item.id not in regular_ids)
     averages = {}
     for key, items in sorted(buckets.items()):
         if history_days < MIN_HISTORY_DAYS or (as_of - history_end).days > LOOKBACK_DAYS or len(items) < MIN_BUCKET_OPERATIONS or len({item.date for item in items}) < 3:
@@ -213,7 +261,7 @@ def _build_forecast(
 def forecast_cash_flow(
     transactions: Sequence[Transaction], *, as_of: date | None = None,
     opening_balance: Decimal | None = None, categorizations: Mapping[int, Categorization] | None = None,
-    balance_info: StatementBalance | None = None,
+    balance_info: StatementBalance | None = None, recurring_rules: Sequence[RecurringRule] = (),
 ) -> ForecastResult:
     """Без as_of прогноз от последнего дня выписки, не позже текущей даты проекта."""
     if opening_balance is not None and not opening_balance.is_finite():
@@ -230,5 +278,5 @@ def forecast_cash_flow(
             date_source = "statement_end" if available_dates else "current_date"
         else:
             calculation_date, date_source = as_of, "explicit"
-        result = _build_forecast(transactions, calculation_date, opening_balance, categorizations, balance_info)
+        result = _build_forecast(transactions, calculation_date, opening_balance, categorizations, balance_info, recurring_rules)
         return result.model_copy(update={"as_of_source": date_source})

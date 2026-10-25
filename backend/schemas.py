@@ -133,6 +133,32 @@ class RecurringResult(BaseModel):
     groups: list[RecurringOperation]
 
 
+CategoryCode = Literal[
+    "sales", "customer_receipts", "other_income", "supplies", "payroll", "contractors",
+    "rent", "equipment_rent", "taxes", "bank_fees", "marketing", "utilities", "telecom",
+    "software", "business_services", "own_transfers", "owner_withdrawals", "refund_in",
+    "refund_out", "unknown",
+]
+
+
+class RecurringRuleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    source_group_id: str | None = None
+    description: str = Field(min_length=1, max_length=200)
+    counterparty: str = Field(min_length=1, max_length=200)
+    category: CategoryCode
+    direction: Literal["income", "expense"]
+    frequency: Literal["weekly", "biweekly", "monthly", "quarterly", "yearly"]
+    amount: Decimal = Field(gt=0, allow_inf_nan=False)
+    next_date: date
+    enabled: bool = True
+
+
+class RecurringRule(RecurringRuleRequest):
+    id: str
+
+
 class ForecastEvent(BaseModel):
     group_id: str
     date: date

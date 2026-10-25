@@ -6,6 +6,7 @@
   <meta name="description" content="Загрузка банковских выписок, категории, регулярные операции и прогноз денежных потоков CashFlow AI.">
   <title>CashFlow AI — денежный поток</title>
   <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/recurring.css">
   <script type="module" src="/assets/app.js"></script>
 </head>
 <body>
@@ -56,8 +57,26 @@
     </section>
     <section id="recurring" class="section panel">
       <div class="section-heading"><div><p class="eyebrow">03 / ПОВТОРЯЕМОСТЬ</p><h2>Регулярные операции</h2><p class="muted">Статус и периодичность определяет анализ истории.</p></div><button class="button subtle" data-action="retry" data-module="recurring">Обновить</button></div>
+      <details id="recurring-editor" class="recurring-editor">
+        <summary>Добавить регулярную операцию</summary>
+        <form id="recurring-rule-form" class="settings-form">
+          <input id="rule-id" type="hidden">
+          <input id="rule-source-group" type="hidden">
+          <label>Описание<input id="rule-description" type="text" maxlength="200" required></label>
+          <label>Контрагент<input id="rule-counterparty" type="text" maxlength="200" required></label>
+          <label>Сумма, ₽<input id="rule-amount" type="text" inputmode="decimal" required></label>
+          <label>Следующая дата<input id="rule-next-date" type="date" required></label>
+          <label>Направление<select id="rule-direction"><option value="expense">Списание</option><option value="income">Поступление</option></select></label>
+          <label>Период<select id="rule-frequency"><option value="weekly">Каждую неделю</option><option value="biweekly">Раз в две недели</option><option value="monthly" selected>Каждый месяц</option><option value="quarterly">Каждый квартал</option><option value="yearly">Каждый год</option></select></label>
+          <label>Категория<select id="rule-category"><option value="sales">Продажи</option><option value="customer_receipts">Поступления от клиентов</option><option value="other_income">Прочие поступления</option><option value="supplies">Закупки и поставщики</option><option value="payroll">Фонд оплаты труда</option><option value="contractors">Услуги по ГПХ</option><option value="rent">Аренда</option><option value="equipment_rent">Аренда оборудования</option><option value="taxes">Налоги и сборы</option><option value="bank_fees">Банковские комиссии</option><option value="marketing">Маркетинг</option><option value="utilities">Коммунальные услуги</option><option value="telecom">Связь и интернет</option><option value="software">ПО и облачные услуги</option><option value="business_services">Хозяйственные и бухгалтерские услуги</option><option value="own_transfers">Переводы между своими счетами</option><option value="owner_withdrawals">Вывод средств предпринимателя</option><option value="refund_in">Возвраты поступившие</option><option value="refund_out">Возвраты выплаченные</option><option value="unknown">Не определено</option></select></label>
+          <label class="rule-enabled"><input id="rule-enabled" type="checkbox" checked> Учитывать в прогнозе</label>
+          <div class="form-footer"><span id="rule-form-message" class="muted" role="status" aria-live="polite"></span><button class="button primary" type="submit">Сохранить и пересчитать</button><button id="rule-cancel" class="button subtle" type="button">Отмена</button></div>
+        </form>
+      </details>
+      <p id="recurring-rule-status" class="muted" role="status" aria-live="polite"></p>
       <label class="compact-filter">Показать<select id="recurring-filter"><option value="all">Все повторные группы</option><option value="confirmed">Подтвержденные</option><option value="potential">Потенциальные</option><option value="uncertain">Неопределенные</option></select></label>
       <div id="recurring-content" aria-live="polite"></div>
+      <div id="recurring-rules-content" aria-live="polite"></div>
     </section>
     <section id="forecast" class="section panel">
       <div class="section-heading"><div><p class="eyebrow">04 / ПЛАНИРОВАНИЕ</p><h2>Прогноз на 30 дней</h2><p class="muted">Сценарная оценка на основе истории и регулярных операций.</p></div><button class="button subtle" data-action="retry" data-module="forecast">Обновить</button></div>

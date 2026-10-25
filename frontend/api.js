@@ -9,6 +9,7 @@ export const contracts = {
     && Number.isInteger(data.total_transactions) && data.total_transactions === data.transactions.length,
   categories: data => data && array(data.categorizations) && Number.isInteger(data.total_transactions),
   recurring: data => data && array(data.groups) && Number.isInteger(data.total_groups),
+  recurringRules: data => array(data) && data.every(rule => rule && typeof rule.id === 'string'),
   forecast: data => data && array(data.daily) && data.summary && typeof data.summary === 'object' && typeof data.start_date === 'string',
   gaps: data => data && ['detected', 'no_gaps', 'not_available'].includes(data.status) && array(data.gaps),
 };
@@ -19,6 +20,7 @@ export async function request(path, options = {}, validate = () => true, fetcher
   try {
     const response = await fetcher(path, { ...options, signal: controller.signal, headers: { Accept: 'application/json', ...options.headers } });
     let data;
+    if (response.status === 204) return null;
     try { data = await response.json(); }
     catch { throw new ApiError('Сервер вернул ответ в неизвестном формате. Повторите запрос.', response.status); }
     if (!response.ok) {
@@ -51,6 +53,12 @@ export const api = {
   upload(file) { const body = new FormData(); body.append('file', file); return request('/api/transactions/upload', { method: 'POST', body }, contracts.upload); },
   categories: () => request('/api/transactions/categorize', { method: 'POST' }, contracts.categories),
   recurring: () => request('/api/transactions/recurring', {}, contracts.recurring),
+  recurringRules: () => request('/api/transactions/recurring-rules', {}, contracts.recurringRules),
+  saveRecurringRule(rule, id = '') {
+    const path = id ? `/api/transactions/recurring-rules/${encodeURIComponent(id)}` : '/api/transactions/recurring-rules';
+    return request(path, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(rule) }, data => data && typeof data.id === 'string');
+  },
+  deleteRecurringRule: id => request(`/api/transactions/recurring-rules/${encodeURIComponent(id)}`, { method: 'DELETE' }),
   forecast: query => request(`/api/forecast${query}`, {}, contracts.forecast),
   gaps: query => request(`/api/forecast/cash-gaps${query}`, {}, contracts.gaps),
 };

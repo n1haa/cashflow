@@ -3,7 +3,8 @@ import { escapeHTML as esc, money, dateLabel, frequencyNames, statusNames, gapSt
 
 const $ = id => document.getElementById(id);
 const blank = () => ({ status: 'idle', data: null, error: '' });
-const state = { transactions: blank(), categories: blank(), recurring: blank(), forecast: blank(), gaps: blank(),
+const categoryNames = { sales: 'Продажи', customer_receipts: 'Поступления от клиентов', other_income: 'Прочие поступления', supplies: 'Закупки и поставщики', payroll: 'Фонд оплаты труда', contractors: 'Услуги по ГПХ', rent: 'Аренда', equipment_rent: 'Аренда оборудования', taxes: 'Налоги и сборы', bank_fees: 'Банковские комиссии', marketing: 'Маркетинг', utilities: 'Коммунальные услуги', telecom: 'Связь и интернет', software: 'ПО и облачные услуги', business_services: 'Хозяйственные и бухгалтерские услуги', own_transfers: 'Переводы между своими счетами', owner_withdrawals: 'Вывод средств предпринимателя', refund_in: 'Возвраты поступившие', refund_out: 'Возвраты выплаченные', unknown: 'Не определено' };
+const state = { transactions: blank(), categories: blank(), recurring: blank(), recurringRules: blank(), forecast: blank(), gaps: blank(),
   imported: null, loadedFilename: '', selectedFile: null, busy: false, query: '', generation: 0, transactionPage: 1, recurringPage: 1 };
 
 function notice(text, tone = '', retry = '') {
@@ -101,6 +102,29 @@ function renderRecurring() {
   $('recurring-content').innerHTML = counts + (!groups.length ? notice('Повторные группы по выбранному фильтру не найдены.') : table('Повторяющиеся операции', ['Описание', 'Средняя сумма', 'Период', 'Последняя / следующая дата', 'Статус'], page.items.map(group => `<tr><td class="description">${esc(group.description || 'Нет описания')}<small>${esc(group.counterparty || '')} · ${esc(group.category_name || 'Не определено')}</small><details><summary>Обоснование · ${esc(group.repetitions ?? 'Нет данных')} операций</summary><p>${esc(group.reason || 'Нет данных')}</p><p>Диапазон: ${esc(money(group.minimum_amount))} — ${esc(money(group.maximum_amount))}</p><p>${group.usable_for_calculations === true ? 'Пригодна для расчетов по правилам анализа' : 'Требует проверки перед использованием в расчетах'}</p></details></td><td class="number">${esc(money(group.average_amount))}<small class="muted" style="display:block">${esc(group.direction === 'income' ? 'Поступление' : group.direction === 'expense' ? 'Списание' : 'Нет данных')}</small></td><td>${esc(frequencyNames[group.frequency] || 'Не определена')}</td><td class="number">${esc(dateLabel(group.last_date))}<small class="muted" style="display:block;margin-top:5px">→ ${esc(group.next_expected_date ? dateLabel(group.next_expected_date) : 'Не определена')}</small></td><td>${badge(group.status)}</td></tr>`)) + pager('recurring', page));
 }
 
+function renderRecurringControls() {
+  const rulesNotice = state.recurringRules.status === 'error'
+    ? notice(`Не удалось получить пользовательские правила: ${state.recurringRules.error}`, 'danger', 'recurringRules') : '';
+  const rules = state.recurringRules.status === 'success' ? state.recurringRules.data : [];
+  const groups = state.recurring.status === 'success' ? state.recurring.data.groups : [];
+  const rulesByGroup = new Map(rules.filter(rule => rule.source_group_id).map(rule => [rule.source_group_id, rule]));
+  const groupRows = groups.map(group => {
+    const rule = rulesByGroup.get(group.group_id);
+    const amount = rule?.amount ?? group.average_amount;
+    const nextDate = rule?.next_date ?? group.next_expected_date;
+    const status = rule ? (rule.enabled ? 'В прогнозе по вашему правилу' : 'Исключена из прогноза')
+      : group.usable_for_calculations ? 'Прогноз по истории' : 'Автоматически не прогнозируется';
+    return `<tr><td class="description">${esc(group.description)}<small>${esc(group.counterparty)} · ${esc(group.category_name)}</small></td><td class="number">${esc(money(amount))}</td><td>${esc(frequencyNames[rule?.frequency || group.frequency] || 'Не определена')}</td><td class="number">${esc(dateLabel(nextDate))}</td><td>${esc(status)}</td><td><button class="button subtle" data-action="edit-group" data-group="${esc(group.group_id)}">${rule ? 'Изменить' : 'Настроить'}</button></td></tr>`;
+  });
+  const manualRules = rules.filter(rule => !rule.source_group_id);
+  const manualRows = manualRules.map(rule => `<tr><td class="description">${esc(rule.description)}<small>${esc(rule.counterparty)} · ${esc(categoryNames[rule.category] || 'Не определено')}</small></td><td class="number">${esc(money(rule.amount))}<small>${esc(rule.direction === 'income' ? 'Поступление' : 'Списание')}</small></td><td>${esc(frequencyNames[rule.frequency] || 'Не определена')}</td><td class="number">${esc(dateLabel(rule.next_date))}</td><td>${esc(rule.enabled ? 'В прогнозе' : 'Отключена')}</td><td><button class="button subtle" data-action="edit-rule" data-rule="${esc(rule.id)}">Изменить</button> <button class="button subtle" data-action="delete-rule" data-rule="${esc(rule.id)}">Удалить</button></td></tr>`);
+  $('recurring-rules-content').innerHTML = rulesNotice + (groupRows.length
+    ? `<h3>Настройки найденных групп</h3>${table('Настройки прогноза для найденных регулярных операций', ['Операция', 'Сумма', 'Период', 'Следующая дата', 'Состояние', 'Действие'], groupRows)}`
+    : '') + (manualRows.length
+      ? `<h3>Добавленные операции</h3>${table('Пользовательские регулярные операции', ['Операция', 'Сумма', 'Период', 'Следующая дата', 'Состояние', 'Действия'], manualRows)}`
+      : '');
+}
+
 function renderForecast() {
   const message = moduleMessage('forecast');
   if (message) { $('forecast-content').innerHTML = message; return; }
@@ -125,11 +149,12 @@ function renderGaps() {
     + data.gaps.filter(Boolean).map(gap => `<article class="gap-card"><h3>Разрыв с ${esc(dateLabel(gap.start_date))} ${badge(gap.status)}</h3><div class="mini-metrics"><span>Дефицит: <strong>${esc(money(gap.maximum_deficit))}</strong></span><span>Минимум: <strong>${esc(money(gap.minimum_balance))}</strong></span><span>Длительность: <strong>${esc(gap.duration_days ?? 'Нет данных')} дн.</strong></span><span>Восстановление: <strong>${esc(gap.recovery_date ? dateLabel(gap.recovery_date) : 'Не найдено в прогнозном окне')}</strong></span></div>${gap.starts_before_forecast ? '<p class="muted">Исходный остаток уже был отрицательным; начало до прогноза неизвестно.</p>' : ''}<details><summary>Потоки и связанные события</summary><p>В день начала: поступления ${esc(money(gap.start_day?.income))}; расходы ${esc(money(gap.start_day?.expense))}.</p><p>В день восстановления: поступления ${esc(money(gap.recovery_day?.income))}; расходы ${esc(money(gap.recovery_day?.expense))}.</p>${Array.isArray(gap.related_events) && gap.related_events.length ? table('Связанные регулярные события', ['Дата', 'Категория', 'Направление', 'Сумма'], gap.related_events.filter(Boolean).map(event => `<tr><td>${esc(dateLabel(event.date))}</td><td>${esc(event.category || 'Не определено')}</td><td>${esc(event.direction === 'income' ? 'Поступление' : 'Списание')}</td><td class="number">${esc(money(event.amount))}</td></tr>`)) : '<p class="muted">Конкретные прогнозные события не предоставлены; доступны дневные показатели.</p>'}<p class="muted">Это контекст изменения остатка, а не доказанная причина дефицита.</p></details></article>`).join('') + warnings(data);
 }
 
-function render() { renderOverview(); renderImport(); renderTransactions(); renderRecurring(); renderForecast(); renderGaps(); }
+function render() { renderOverview(); renderImport(); renderTransactions(); renderRecurring(); renderRecurringControls(); renderForecast(); renderGaps(); }
 function setBusy(busy) {
   state.busy = busy;
   ['upload-submit', 'statement-file', 'refresh-all', 'as-of', 'opening-balance'].forEach(id => { $(id).disabled = busy; });
   document.querySelectorAll('[data-action="retry"]').forEach(button => { button.disabled = busy; });
+  document.querySelectorAll('#recurring-rule-form input, #recurring-rule-form select, #recurring-rule-form button').forEach(control => { control.disabled = busy; });
 }
 async function loadModule(name, generation) {
   state[name] = { ...blank(), status: 'loading' }; render(); setBusy(state.busy);
@@ -144,11 +169,45 @@ async function loadModule(name, generation) {
 async function analyze() {
   const generation = state.generation;
   await loadModule('categories', generation);
-  await Promise.allSettled(['recurring', 'forecast', 'gaps'].map(name => loadModule(name, generation)));
+  await Promise.allSettled(['recurring', 'recurringRules', 'forecast', 'gaps'].map(name => loadModule(name, generation)));
 }
 function clearAnalysis() {
-  ['categories', 'recurring', 'forecast', 'gaps'].forEach(name => { state[name] = blank(); });
+  ['categories', 'recurring', 'recurringRules', 'forecast', 'gaps'].forEach(name => { state[name] = blank(); });
   state.transactionPage = state.recurringPage = 1;
+}
+
+function editRule(rule = {}, group = {}) {
+  const form = $('recurring-rule-form');
+  $('rule-id').value = rule.id || '';
+  $('rule-source-group').value = rule.source_group_id || group.group_id || '';
+  $('rule-description').value = rule.description || group.description || '';
+  $('rule-counterparty').value = rule.counterparty || group.counterparty || '';
+  $('rule-amount').value = String(rule.amount ?? group.average_amount ?? '');
+  $('rule-next-date').value = rule.next_date || group.next_expected_date || '';
+  $('rule-direction').value = rule.direction || group.direction || 'expense';
+  $('rule-frequency').value = rule.frequency && rule.frequency !== 'unknown' ? rule.frequency : 'monthly';
+  $('rule-category').value = rule.category || group.category || 'unknown';
+  $('rule-enabled').checked = rule.enabled ?? true;
+  $('rule-form-message').textContent = '';
+  $('recurring-rule-status').textContent = '';
+  $('recurring-editor').querySelector('summary').textContent = rule.id || group.group_id ? 'Редактировать регулярную операцию' : 'Добавить регулярную операцию';
+  $('recurring-editor').open = true;
+  $('rule-description').focus();
+  form.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function resetRuleEditor() {
+  $('recurring-rule-form').reset();
+  $('rule-id').value = '';
+  $('rule-source-group').value = '';
+  $('recurring-editor').open = false;
+  $('rule-form-message').textContent = '';
+  $('recurring-editor').querySelector('summary').textContent = 'Добавить регулярную операцию';
+}
+
+async function refreshAfterRuleChange() {
+  const generation = state.generation;
+  await Promise.allSettled(['recurring', 'recurringRules', 'forecast', 'gaps'].map(name => loadModule(name, generation)));
 }
 
 async function loadExisting() {
@@ -158,7 +217,8 @@ async function loadExisting() {
     const rows = await api.transactions();
     state.transactions = { status: 'success', data: rows, error: '' };
     state.generation++; clearAnalysis(); render();
-    if (rows.length) { $('global-message').innerHTML = notice('Загружена последняя выписка из памяти сервера. Имя файла и исходные номера строк после обновления страницы недоступны.'); await analyze(); }
+    if (rows.length) $('global-message').innerHTML = notice('Загружена последняя выписка из памяти сервера. Имя файла и исходные номера строк после обновления страницы недоступны.');
+    await analyze();
   } catch (error) { state.transactions = { status: 'error', data: null, error: error.message }; render(); }
   finally { setBusy(false); }
 }
@@ -169,6 +229,39 @@ function chooseFile(file) {
   $('upload-message').innerHTML = '';
 }
 $('statement-file').addEventListener('change', event => chooseFile(event.target.files[0]));
+$('recurring-rule-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  if (state.busy) return;
+  const amount = $('rule-amount').value.trim().replaceAll('\u00a0', '').replaceAll(' ', '').replace(',', '.');
+  if (!/^\d+(?:\.\d+)?$/.test(amount) || /^0+(?:\.0+)?$/.test(amount)) {
+    $('rule-form-message').textContent = 'Введите положительную сумму, например 25000,50.';
+    return;
+  }
+  const rule = {
+    source_group_id: $('rule-source-group').value || null,
+    description: $('rule-description').value.trim(),
+    counterparty: $('rule-counterparty').value.trim(),
+    category: $('rule-category').value,
+    direction: $('rule-direction').value,
+    frequency: $('rule-frequency').value,
+    amount,
+    next_date: $('rule-next-date').value,
+    enabled: $('rule-enabled').checked,
+  };
+  setBusy(true);
+  $('recurring-rule-status').textContent = '';
+  $('rule-form-message').textContent = 'Сохраняем правило и пересчитываем прогноз…';
+  try {
+    await api.saveRecurringRule(rule, $('rule-id').value);
+    resetRuleEditor();
+    await refreshAfterRuleChange();
+    $('recurring-rule-status').textContent = 'Правило сохранено. Прогноз и анализ кассовых разрывов обновлены.';
+  } catch (error) {
+    $('rule-form-message').textContent = error.message;
+    $('recurring-rule-status').textContent = error.message;
+  } finally { setBusy(false); }
+});
+$('rule-cancel').addEventListener('click', resetRuleEditor);
 $('file-zone').addEventListener('dragover', event => { event.preventDefault(); if (!state.busy) $('file-zone').classList.add('dragover'); });
 $('file-zone').addEventListener('dragleave', () => $('file-zone').classList.remove('dragover'));
 $('file-zone').addEventListener('drop', event => {
@@ -218,7 +311,25 @@ document.addEventListener('click', async event => {
   const button = event.target.closest('button[data-action]');
   if (!button) return;
   const name = button.dataset.module;
-  if (button.dataset.action === 'page') {
+  if (button.dataset.action === 'edit-group') {
+    const group = state.recurring.data?.groups.find(item => item.group_id === button.dataset.group);
+    const rule = state.recurringRules.data?.find(item => item.source_group_id === button.dataset.group);
+    if (group) editRule(rule || {}, group);
+  } else if (button.dataset.action === 'edit-rule') {
+    const rule = state.recurringRules.data?.find(item => item.id === button.dataset.rule);
+    if (rule) editRule(rule);
+  } else if (button.dataset.action === 'delete-rule' && !state.busy) {
+    if (!window.confirm('Удалить правило? Прогноз вернется к автоматическому расчету по истории.')) return;
+    setBusy(true);
+    $('recurring-rule-status').textContent = '';
+    try {
+      await api.deleteRecurringRule(button.dataset.rule);
+      await refreshAfterRuleChange();
+      $('recurring-rule-status').textContent = 'Правило удалено. Прогноз обновлен.';
+    } catch (error) {
+      $('recurring-rule-status').textContent = error.message;
+    } finally { setBusy(false); }
+  } else if (button.dataset.action === 'page') {
     state[name === 'transactions' ? 'transactionPage' : 'recurringPage'] += Number(button.dataset.step);
     name === 'transactions' ? renderTransactions() : renderRecurring();
   } else if (button.dataset.action === 'retry' && !state.busy) {

@@ -72,3 +72,36 @@ def test_new_upload_cannot_return_old_groups(client, csv_content):
     client.post("/api/transactions/upload", files={"file": ("demo.csv", csv_content)})
     assert client.get("/api/transactions/recurring").json()["total_transactions"] == 1
     assert client.get("/api/transactions/recurring").json()["groups"] == []
+
+
+def test_recurring_rule_crud_recalculates_forecast(client):
+    payload = {
+        "source_group_id": None,
+        "description": "Аренда офиса",
+        "counterparty": "ООО Демо",
+        "category": "rent",
+        "direction": "expense",
+        "frequency": "monthly",
+        "amount": "25000.00",
+        "next_date": "2026-10-15",
+        "enabled": True,
+    }
+    created = client.post("/api/transactions/recurring-rules", json=payload)
+    assert created.status_code == 201
+    rule = created.json()
+    assert client.get("/api/transactions/recurring-rules").json() == [rule]
+
+    forecast = client.get("/api/forecast", params={"as_of": "2026-09-30", "opening_balance": "100000"}).json()
+    assert [(event["date"], event["amount"]) for event in forecast["scheduled_events"]] == [("2026-10-15", "25000.00")]
+
+    updated = {**payload, "amount": "30000.00", "next_date": "2026-10-20"}
+    response = client.put(f"/api/transactions/recurring-rules/{rule['id']}", json=updated)
+    assert response.status_code == 200
+    forecast = client.get("/api/forecast", params={"as_of": "2026-09-30", "opening_balance": "100000"}).json()
+    assert [(event["date"], event["amount"]) for event in forecast["scheduled_events"]] == [("2026-10-20", "30000.00")]
+
+    deleted = client.delete(f"/api/transactions/recurring-rules/{rule['id']}")
+    assert deleted.status_code == 204
+    forecast = client.get("/api/forecast", params={"as_of": "2026-09-30", "opening_balance": "100000"}).json()
+    assert forecast["scheduled_events"] == []
+    assert forecast["summary"]["total_expense"] == "0.00"
