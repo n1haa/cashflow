@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+import secrets
 from pathlib import Path
 import socket
 import subprocess
@@ -13,6 +14,10 @@ import time
 from urllib.request import urlopen
 
 from playwright.sync_api import expect, sync_playwright
+from sqlalchemy import delete
+from backend.config import Settings
+from backend.database import make_engine, make_session_factory
+from backend.models import User
 
 
 def main():
@@ -30,9 +35,13 @@ def main():
     base = f'http://127.0.0.1:{port}'
     process = subprocess.Popen([sys.executable, '-m', 'uvicorn', 'backend.main:app', '--host', '127.0.0.1', '--port', str(port), '--no-access-log'],
                                cwd=root, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                               env={**os.environ, 'APP_ORIGIN': base, 'SESSION_COOKIE_SECURE': 'false',
+                                    'OPENROUTER_ALLOW_FINANCIAL_DATA': 'false'},
                                creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     results = []
     datasets = []
+    test_email = f"dataset-browser-{secrets.token_hex(10)}@example.com"
+    registered = False
     try:
         for _ in range(100):
             try:
@@ -46,6 +55,13 @@ def main():
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(channel=args.browser_channel, headless=True)
             context = browser.new_context(viewport={'width': 1440, 'height': 1000})
+            password = secrets.token_urlsafe(24)
+            registration = context.request.post(base + '/api/auth/register',
+                headers={'X-Requested-With': 'CashFlow'},
+                data={'name': 'Dataset browser test', 'email': test_email,
+                      'password': password, 'password_confirmation': password})
+            assert registration.status == 201, 'Configure MySQL and apply migrations before browser tests'
+            registered = True
             page = context.new_page()
             errors = []
             page.on('pageerror', lambda error: errors.append(str(error)))
@@ -221,6 +237,12 @@ def main():
         except subprocess.TimeoutExpired:
             process.kill()
             process.wait(timeout=5)
+        if registered:
+            engine = make_engine(Settings.from_env().database_url)
+            with make_session_factory(engine)() as db:
+                db.execute(delete(User).where(User.email == test_email))
+                db.commit()
+            engine.dispose()
 
 
 if __name__ == '__main__':

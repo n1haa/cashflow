@@ -16,9 +16,9 @@ async def get_forecast(
     opening_balance: Decimal | None = Query(default=None, allow_inf_nan=False),
 ) -> ForecastResult:
     try:
-        result = forecast_cash_flow(request.app.state.transactions, as_of=as_of, opening_balance=opening_balance,
-                                  categorizations=request.app.state.categorizations, balance_info=request.app.state.balance_info)
-        manual = [event for event in request.app.state.planned_events if result.start_date <= event.date <= result.end_date]
+        result = forecast_cash_flow(request.state.workspace.transactions, as_of=as_of, opening_balance=opening_balance,
+                                  categorizations=request.state.workspace.categorizations, balance_info=request.state.workspace.balance_info)
+        manual = [event for event in request.state.workspace.planned_events if result.start_date <= event.date <= result.end_date]
         if manual:
             amounts = {day.date: {"income": day.income, "expense": day.expense,
                                   "regular_income": day.regular_income, "regular_expense": day.regular_expense}
@@ -46,7 +46,7 @@ async def get_forecast(
                 "summary": result.summary.model_copy(update={"total_income": total_income,
                     "total_expense": total_expense, "net_cash_flow": total_income-total_expense,
                     "closing_balance": balance+cumulative if balance is not None else None})})
-        request.app.state.last_forecast = result
+        request.state.workspace.last_forecast = result
         return result
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from None
@@ -55,5 +55,5 @@ async def get_forecast(
 @router.get("/cash-gaps", response_model=CashGapAnalysis)
 async def get_cash_gaps(request: Request, forecast: ForecastResult = Depends(get_forecast)) -> CashGapAnalysis:
     result = analyze_cash_gaps(forecast)
-    request.app.state.last_gaps = result
+    request.state.workspace.last_gaps = result
     return result

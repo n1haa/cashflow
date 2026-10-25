@@ -15,7 +15,7 @@ def test_existing_pipeline_and_one_forecast_call(client, csv_content, xlsx_conte
     uploaded = client.post("/api/transactions/upload", files={"file": (f"demo.{extension}", content)})
     assert uploaded.status_code == 200
     client.post("/api/transactions/categorize")
-    before_categories = dict(client.app.state.categorizations)
+    before_categories = dict(client.workspace.categorizations)
     before_recurring = client.get("/api/transactions/recurring").json()
     original = forecast_api.forecast_cash_flow
     calls = []
@@ -33,7 +33,7 @@ def test_existing_pipeline_and_one_forecast_call(client, csv_content, xlsx_conte
     assert body["gaps"][0]["duration_days"] == 30
     assert body["gaps"][0]["starts_before_forecast"]
     assert client.get("/api/transactions").json() == uploaded.json()["transactions"]
-    assert client.app.state.categorizations == before_categories
+    assert client.workspace.categorizations == before_categories
     assert client.get("/api/transactions/recurring").json() == before_recurring
 
 

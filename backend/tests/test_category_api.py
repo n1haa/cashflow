@@ -15,7 +15,7 @@ def test_categorize_uploaded_operations(client, csv_content, xlsx_content, exten
     assert body["categorizations"][0]["transaction_id"] == before[0]["id"]
     assert client.post("/api/transactions/categorize").json() == body
     assert client.get("/api/transactions").json() == before
-    assert list(client.app.state.categorizations) == [1]
+    assert list(client.workspace.categorizations) == [1]
 
 
 def test_empty_store(client):
@@ -28,22 +28,22 @@ def test_selection_and_validation(client, csv_content):
     client.post("/api/transactions/upload", files={"file": ("demo.csv", csv_content)})
     assert client.post("/api/transactions/categorize", json={"transaction_ids": [1]}).json()["total_transactions"] == 1
     assert client.post("/api/transactions/categorize", json={"transaction_ids": []}).json()["total_transactions"] == 0
-    before = dict(client.app.state.categorizations)
+    before = dict(client.workspace.categorizations)
     assert client.post("/api/transactions/categorize", json={"transaction_ids": [1, 1]}).status_code == 400
     assert client.post("/api/transactions/categorize", json={"transaction_ids": [2]}).status_code == 404
     assert client.post("/api/transactions/categorize", json={"transaction_ids": "all"}).status_code == 422
     assert client.post("/api/transactions/categorize", json={"unexpected": 1}).status_code == 422
-    assert client.app.state.categorizations == before
+    assert client.workspace.categorizations == before
 
 
 def test_upload_resets_categories_only_on_success(client, csv_content):
     client.post("/api/transactions/upload", files={"file": ("demo.csv", csv_content)})
     client.post("/api/transactions/categorize")
-    before = dict(client.app.state.categorizations)
+    before = dict(client.workspace.categorizations)
     assert client.post("/api/transactions/upload", files={"file": ("broken.csv", b"bad")}).status_code == 400
-    assert client.app.state.categorizations == before
+    assert client.workspace.categorizations == before
     assert client.post("/api/transactions/upload", files={"file": ("demo.csv", csv_content)}).status_code == 200
-    assert client.app.state.categorizations == {}
+    assert client.workspace.categorizations == {}
 
 
 def test_missing_inn_does_not_block_categorization(client, csv_content):

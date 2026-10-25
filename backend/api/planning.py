@@ -15,33 +15,33 @@ router = APIRouter(prefix="/api", tags=["planning"])
 
 @router.get("/events", response_model=list[PlannedEvent])
 def list_events(request: Request):
-    return request.app.state.planned_events
+    return request.state.workspace.planned_events
 
 
 @router.post("/events", response_model=PlannedEvent, status_code=201)
 def add_event(payload: PlannedEventInput, request: Request):
-    event = PlannedEvent(id=request.app.state.next_event_id, **payload.model_dump())
-    request.app.state.next_event_id += 1
-    request.app.state.planned_events.append(event)
+    event = PlannedEvent(id=request.state.workspace.next_event_id, **payload.model_dump())
+    request.state.workspace.next_event_id += 1
+    request.state.workspace.planned_events.append(event)
     return event
 
 
 @router.delete("/events/{event_id}", status_code=204)
 def delete_event(event_id: int, request: Request):
-    events = request.app.state.planned_events
+    events = request.state.workspace.planned_events
     kept = [event for event in events if event.id != event_id]
     if len(kept) == len(events):
         raise HTTPException(status_code=404, detail="Будущее событие не найдено")
-    request.app.state.planned_events = kept
+    request.state.workspace.planned_events = kept
 
 
 def _context(request: Request) -> tuple[list[str], list[str]]:
-    transactions = request.app.state.transactions
-    events = request.app.state.planned_events
+    transactions = request.state.workspace.transactions
+    events = request.state.workspace.planned_events
     sources: list[str] = []
     facts: list[str] = []
     for tx in transactions:
-        category = request.app.state.categorizations.get(tx.id)
+        category = request.state.workspace.categorizations.get(tx.id)
         label = category.category_name if category else "категория не рассчитана"
         item = f"Операция #{tx.id}: {tx.date} | {tx.direction} | {tx.amount} ₽ | {tx.counterparty} | {label} | {tx.description}"
         facts.append(item)
@@ -49,11 +49,11 @@ def _context(request: Request) -> tuple[list[str], list[str]]:
     for event in events:
         facts.append(f"Событие #{event.id}: {event.date} | {event.direction} | {event.amount} ₽ | {event.category} | {event.description}")
         sources.append(f"Ручное событие #{event.id} на {event.date}: {event.description}, {event.amount} ₽")
-    recurring = detect_recurring_transactions(transactions, request.app.state.categorizations)
+    recurring = detect_recurring_transactions(transactions, request.state.workspace.categorizations)
     for group in recurring.groups:
         facts.append(f"Регулярная операция: {group.description} | {group.direction} | {group.category_name} | {group.frequency} | средняя сумма {group.average_amount} ₽ | последняя дата {group.last_date} | следующая дата {group.next_expected_date} | статус {group.status} | операции {', '.join(map(str, group.transaction_ids))}")
         sources.append(f"Регулярная группа {group.group_id}: {group.description}, операции {', '.join(map(str, group.transaction_ids))}")
-    forecast = request.app.state.last_forecast
+    forecast = request.state.workspace.last_forecast
     if forecast:
         facts.append(f"Сводка прогноза: остаток на {forecast.as_of} — {forecast.summary.opening_balance} ₽; ожидаемый остаток на {forecast.end_date} — {forecast.summary.closing_balance} ₽.")
         sources.append(f"Итог прогноза на {forecast.end_date}: {forecast.summary.closing_balance} ₽")
@@ -61,7 +61,7 @@ def _context(request: Request) -> tuple[list[str], list[str]]:
             if day.balance is not None:
                 facts.append(f"День прогноза {day.date}: остаток {day.balance} ₽; поступления {day.income} ₽; расходы {day.expense} ₽")
                 sources.append(f"День прогноза {day.date}: остаток {day.balance} ₽, поступления {day.income} ₽, расходы {day.expense} ₽")
-    gaps = request.app.state.last_gaps
+    gaps = request.state.workspace.last_gaps
     if gaps:
         for gap in gaps.gaps:
             facts.append(f"Риск кассового разрыва {gap.start_date}: максимум дефицита {gap.maximum_deficit} ₽, минимум остатка {gap.minimum_balance} ₽")
@@ -93,7 +93,7 @@ def _retrieve(request: Request, question: str, facts: list[str]) -> list[str]:
     key = os.getenv("OPENROUTER_API_KEY", "").strip()
     allow_financial_data = os.getenv("OPENROUTER_ALLOW_FINANCIAL_DATA", "false").strip().casefold() == "true"
     model = os.getenv("OPENROUTER_EMBEDDING_MODEL", "nvidia/nemotron-3.5-embed-1b:free")
-    cache = request.app.state.embedding_cache
+    cache = request.state.workspace.embedding_cache
     query_vector = None
     if key and allow_financial_data:
         missing = [fact for fact in facts if fact not in cache]
@@ -148,8 +148,8 @@ def chat(payload: ChatRequest, request: Request):
         if not chosen:
             chosen = [fact for fact in facts if "регулярная операция:" in fact.casefold()]
     elif any(word in question for word in ("разрыв", "нехват", "остаток", "прогноз")):
-        forecast = request.app.state.last_forecast
-        gaps = request.app.state.last_gaps
+        forecast = request.state.workspace.last_forecast
+        gaps = request.state.workspace.last_gaps
         if forecast:
             chosen = [f"Прогноз на {forecast.as_of}: остаток на начало {forecast.summary.opening_balance}; ожидаемый остаток на {forecast.end_date}: {forecast.summary.closing_balance} ₽."]
             chosen.extend(f"День {d.date}: остаток {d.balance} ₽, поступления {d.income} ₽, расходы {d.expense} ₽" for d in forecast.daily if d.balance is not None and d.balance < 0)
@@ -158,13 +158,13 @@ def chat(payload: ChatRequest, request: Request):
         else:
             chosen = ["Прогноз еще не рассчитан."]
     elif any(word in question for word in ("поступлен", "выруч", "крупн")):
-        forecast = request.app.state.last_forecast
+        forecast = request.state.workspace.last_forecast
         if forecast:
             chosen = [f"{day.date}: ожидаемые поступления {day.income} ₽, прогнозный остаток {day.balance} ₽" for day in forecast.daily if day.income > 0]
         else:
             chosen = [fact for fact in facts if "income" in fact.casefold() or "поступлен" in fact.casefold()]
     answer = _llm_answer(payload.message, chosen)
-    mode = "llm" if answer else ("nemotron_rag" if request.app.state.embedding_cache else "grounded_local")
+    mode = "llm" if answer else ("nemotron_rag" if request.state.workspace.embedding_cache else "grounded_local")
     if answer is None:
         relevant = [fact for fact in chosen if any(token in fact.casefold() for token in question.split() if len(token) > 3)]
         if relevant:

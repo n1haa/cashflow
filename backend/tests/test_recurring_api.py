@@ -59,12 +59,12 @@ def test_uploaded_transactions_with_or_without_saved_categories(client, row, ext
     assert group["average_amount"] == "15000.50"
     assert group["next_expected_date"] == "2026-04-05"
     assert group["transaction_ids"] == [1, 2, 3]
-    assert client.app.state.categorizations == {}  # GET не записывает категории.
+    assert client.workspace.categorizations == {}  # GET не записывает категории.
     client.post("/api/transactions/categorize")
-    saved_categories = dict(client.app.state.categorizations)
+    saved_categories = dict(client.workspace.categorizations)
     assert client.get("/api/transactions/recurring").json() == result.json()
     assert client.get("/api/transactions/recurring").json() == result.json()
-    assert client.app.state.categorizations == saved_categories
+    assert client.workspace.categorizations == saved_categories
     assert client.get("/api/transactions").json() == before
 
 

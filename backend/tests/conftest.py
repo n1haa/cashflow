@@ -5,6 +5,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.main import create_app
+from backend.config import Settings
+from backend.database import Base
 
 
 def pytest_addoption(parser):
@@ -40,6 +42,28 @@ def xlsx_content(frame):
 
 
 @pytest.fixture
-def client():
-    with TestClient(create_app()) as test_client:
+def auth_app(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENROUTER_ALLOW_FINANCIAL_DATA", "false")
+    app = create_app(Settings(database_url=f"sqlite:///{(tmp_path / 'auth.db').as_posix()}", app_origin="http://testserver"))
+    Base.metadata.create_all(app.state.engine)
+    yield app
+    app.state.engine.dispose()
+
+
+@pytest.fixture
+def anonymous_client(auth_app):
+    with TestClient(auth_app, headers={"X-Requested-With": "CashFlow"}) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def client(anonymous_client):
+    test_client = anonymous_client
+    response = test_client.post("/api/auth/register", json={
+        "name": "Тестовый пользователь", "email": "tester@example.com",
+        "password": "test-password-123", "password_confirmation": "test-password-123",
+    })
+    assert response.status_code == 201
+    test_client.get("/api/auth/me")
+    test_client.workspace = test_client.app.state.workspaces[response.json()["id"]]
+    yield test_client

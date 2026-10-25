@@ -56,7 +56,7 @@ def test_full_dataset_cash_gaps(request, client, filename, total, minimum, as_of
     uploaded = client.post("/api/transactions/upload", files={"file": (filename, content)})
     assert uploaded.status_code == 200
     assert client.post("/api/transactions/categorize").status_code == 200
-    categories_before = dict(client.app.state.categorizations)
+    categories_before = dict(client.workspace.categorizations)
     recurring_before = client.get("/api/transactions/recurring").json()
     forecast_before = client.get("/api/forecast", params={"as_of": str(as_of)}).json()
     response = client.get("/api/forecast/cash-gaps", params={"as_of": str(as_of)})
@@ -65,5 +65,5 @@ def test_full_dataset_cash_gaps(request, client, filename, total, minimum, as_of
     assert client.get("/api/forecast", params={"as_of": str(as_of)}).json() == forecast_before
     assert client.get("/api/transactions/recurring").json() == recurring_before
     assert client.get("/api/transactions").json() == uploaded.json()["transactions"]
-    assert client.app.state.categorizations == categories_before
+    assert client.workspace.categorizations == categories_before
     assert hashlib.sha256(path.read_bytes()).hexdigest() == checksum

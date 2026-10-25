@@ -53,6 +53,6 @@ def test_full_dataset_categorization(request, client, filename, expected):
     assert response.status_code == 200
     assert response.json() == result.model_dump(mode="json")
     assert client.post("/api/transactions/categorize").json() == response.json()
-    assert len(client.app.state.categorizations) == result.total_transactions
+    assert len(client.workspace.categorizations) == result.total_transactions
     assert client.get("/api/transactions").json() == upload.json()["transactions"]
     assert hashlib.sha256(path.read_bytes()).hexdigest() == checksum

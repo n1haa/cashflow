@@ -20,7 +20,10 @@ export async function request(path, options = {}, validate = () => true, fetcher
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetcher(path, { ...options, signal: controller.signal, headers: { Accept: 'application/json', ...options.headers } });
+    const response = await fetcher(path, { credentials: 'same-origin', ...options, signal: controller.signal, headers: { Accept: 'application/json', 'X-Requested-With': 'CashFlow', ...options.headers } });
+    if (response.status === 401 && !['/api/auth/login', '/api/auth/register'].includes(path) && globalThis.window) {
+      window.location.replace('/login');
+    }
     if (response.status === 204) return null;
     let data;
     try { data = await response.json(); }

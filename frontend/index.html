@@ -7,6 +7,7 @@
   <title>CashFlow AI — денежный поток</title>
   <link rel="stylesheet" href="/assets/styles.css">
   <script type="module" src="/assets/app.js"></script>
+  <script type="module" src="/assets/account.js"></script>
 </head>
 <body>
   <a class="skip" href="#main">Перейти к содержимому</a>
@@ -27,13 +28,13 @@
     <div class="sidebar-note"><span class="connection-dot"></span>Локальное рабочее пространство<p>Последняя выписка хранится до перезапуска сервера.</p></div>
   </aside>
   <main id="main">
-    <header class="topbar"><span>Финансы бизнеса <span class="muted">/ Анализ выписки</span></span><a href="#forecast">Прогноз на 30 дней ↗</a></header>
+    <header class="topbar"><span>Финансы бизнеса <span class="muted">/ Анализ выписки</span></span><div class="account-menu"><span id="account-name" role="status"></span><button id="account-logout" class="button secondary" type="button">Выйти</button></div></header>
     <div class="tab-content" id="tab-content">
     <section id="overview" class="section is-active">
       <div class="section-heading"><div><p class="eyebrow">CASHFLOW AI</p><h1>Ваш денежный поток</h1><p class="muted">От банковской выписки к понятной картине ближайших 30 дней.</p></div><a class="button primary" href="#upload">Загрузить выписку <span aria-hidden="true">↑</span></a></div>
       <div id="global-message" role="status" aria-live="polite"></div>
       <div id="overview-content" aria-live="polite"><div class="notice">Загружаем состояние рабочего пространства…</div></div>
-      <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров. Данные хранятся в памяти сервера до перезапуска; для нескольких пользователей нужна авторизация и постоянная БД.</footer>
+      <footer>CashFlow AI · Прогноз зависит от полноты выписки и выбранных параметров. Выписки и события вашего аккаунта хранятся в памяти до перезапуска сервера.</footer>
     </section>
     <section id="upload" class="section panel">
       <div class="section-heading"><div><p class="eyebrow">01 / ДАННЫЕ</p><h2>Банковская выписка</h2><p class="muted">CSV или XLSX, до 10 МиБ. Новая выписка заменит предыдущую.</p></div></div>

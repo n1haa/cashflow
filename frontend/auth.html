@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Личный кабинет CashFlow AI — регистрация и вход.">
+  <title>Вход — CashFlow AI</title>
+  <link rel="stylesheet" href="/assets/styles.css">
+  <link rel="stylesheet" href="/assets/auth.css">
+  <script type="module" src="/assets/auth.js"></script>
+</head>
+<body class="auth-page">
+  <main class="auth-layout">
+    <section class="auth-story" aria-label="CashFlow AI">
+      <a class="brand" href="/login"><span class="brand-mark" aria-hidden="true">↗</span><span>CashFlow <b>AI</b></span></a>
+      <div class="auth-story-copy"><p class="auth-kicker">ФИНАНСЫ ПОД КОНТРОЛЕМ</p><h1>Видеть больше.<br>Планировать увереннее.</h1><p>Ваши операции, будущие платежи и прогноз денежного потока — в одном личном кабинете.</p>
+        <div class="auth-preview" aria-hidden="true"><div><span>Горизонт планирования</span><strong>30 дней <span>↗</span></strong></div><div class="auth-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>От выписки к ясной картине финансов</span></div>
+      </div>
+      <p class="auth-story-footer">CashFlow AI · Рабочее пространство вашего бизнеса</p>
+    </section>
+    <section class="auth-form-panel">
+      <div class="auth-card">
+        <p class="eyebrow">ЛИЧНЫЙ КАБИНЕТ</p>
+        <h2 id="auth-title">С возвращением</h2>
+        <p id="auth-description" class="muted">Войдите, чтобы продолжить работу с финансами.</p>
+        <div class="auth-tabs" aria-label="Аккаунт"><a href="/login" id="login-tab">Вход</a><a href="/register" id="register-tab">Регистрация</a></div>
+        <form id="auth-form">
+          <div id="name-field" hidden><label for="name">Имя</label><input id="name" name="name" type="text" autocomplete="name" minlength="2" maxlength="100" placeholder="Как к вам обращаться"></div>
+          <div><label for="email">Email</label><input id="email" name="email" type="email" autocomplete="username" maxlength="254" placeholder="you@company.ru" required></div>
+          <div><label for="password">Пароль</label><div class="password-input"><input id="password" name="password" type="password" autocomplete="current-password" maxlength="128" required><button id="toggle-password" type="button" aria-label="Показать пароль" aria-pressed="false">Показать</button></div><p id="password-hint" class="auth-hint" hidden>От 12 до 128 символов. Можно использовать длинную фразу.</p></div>
+          <div id="confirmation-field" hidden><label for="password-confirmation">Подтверждение пароля</label><input id="password-confirmation" name="password_confirmation" type="password" autocomplete="new-password" maxlength="128"></div>
+          <p id="auth-message" class="notice danger" role="alert" tabindex="-1" hidden></p>
+          <button id="auth-submit" class="button primary" type="submit">Войти в кабинет <span aria-hidden="true">→</span></button>
+        </form>
+        <noscript><p class="notice warning">Для входа и работы с приложением включите JavaScript.</p></noscript>
+        <p class="auth-footnote">Ваше рабочее пространство доступно только вам.</p>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

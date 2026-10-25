@@ -30,24 +30,24 @@ async def upload_transactions(request: Request, file: UploadFile = File(...)) ->
     finally:
         await file.close()
     # Заменяем данные только после успешной проверки всей выписки.
-    request.app.state.transactions = tuple(result.transactions)
-    request.app.state.categorizations = {}
-    request.app.state.balance_info = result.balance_info
-    request.app.state.last_forecast = None
-    request.app.state.last_gaps = None
+    request.state.workspace.transactions = tuple(result.transactions)
+    request.state.workspace.categorizations = {}
+    request.state.workspace.balance_info = result.balance_info
+    request.state.workspace.last_forecast = None
+    request.state.workspace.last_gaps = None
     return result
 
 
 @router.get("", response_model=list[Transaction])
 def get_transactions(request: Request) -> tuple[Transaction, ...]:
-    return request.app.state.transactions
+    return request.state.workspace.transactions
 
 
 @router.post("/categorize", response_model=CategorizationResult)
 async def categorize_stored_transactions(
     request: Request, selection: CategorizationRequest | None = None,
 ) -> CategorizationResult:
-    transactions = request.app.state.transactions
+    transactions = request.state.workspace.transactions
     if selection is not None and selection.transaction_ids is not None:
         ids = selection.transaction_ids
         if len(ids) != len(set(ids)):
@@ -58,11 +58,11 @@ async def categorize_stored_transactions(
         selected = set(ids)
         transactions = tuple(item for item in transactions if item.id in selected)
     result = categorize_transactions(transactions)
-    request.app.state.categorizations.update({item.transaction_id: item for item in result.categorizations})
+    request.state.workspace.categorizations.update({item.transaction_id: item for item in result.categorizations})
     return result
 
 
 @router.get("/recurring", response_model=RecurringResult)
 async def get_recurring_operations(request: Request) -> RecurringResult:
     # Снимок текущей выписки; новые платежи или категории не создаются.
-    return detect_recurring_transactions(request.app.state.transactions, request.app.state.categorizations)
+    return detect_recurring_transactions(request.state.workspace.transactions, request.state.workspace.categorizations)

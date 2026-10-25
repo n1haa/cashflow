@@ -18,7 +18,7 @@ def test_upload_forecast_and_existing_api_unchanged(client, csv_content, xlsx_co
     uploaded = client.post("/api/transactions/upload", files={"file": (f"demo.{extension}", content)})
     assert uploaded.status_code == 200
     client.post("/api/transactions/categorize")
-    before_categories = dict(client.app.state.categorizations)
+    before_categories = dict(client.workspace.categorizations)
     before_recurring = client.get("/api/transactions/recurring").json()
     response = client.get("/api/forecast", params={"as_of": "2026-10-01"})
     assert response.status_code == 200
@@ -29,7 +29,7 @@ def test_upload_forecast_and_existing_api_unchanged(client, csv_content, xlsx_co
     assert body["end_date"] == "2026-10-31"
     assert client.get("/api/forecast", params={"as_of": "2026-10-01"}).json() == body
     assert client.get("/api/transactions").json() == uploaded.json()["transactions"]
-    assert client.app.state.categorizations == before_categories
+    assert client.workspace.categorizations == before_categories
     assert client.get("/api/transactions/recurring").json() == before_recurring
 
 
